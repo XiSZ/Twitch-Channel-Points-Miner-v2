@@ -43,6 +43,7 @@ from TwitchChannelPointsMiner.utils import (
     create_chunks,
     internet_connection_available,
 )
+from security import safe_requests
 import secrets
 
 logger = logging.getLogger(__name__)
@@ -135,6 +136,8 @@ class Twitch(object):
             from TwitchChannelPointsMiner.constants import USER_AGENTS
             headers = {"User-Agent": USER_AGENTS["Linux"]["FIREFOX"]}
 
+            main_page_request = safe_requests.get(
+                streamer.streamer_url, headers=headers)
             main_page_request = requests.get(
                 streamer.streamer_url, headers=headers, timeout=60)
             response = main_page_request.text
@@ -142,6 +145,7 @@ class Twitch(object):
             regex_settings = "(https://static.twitchcdn.net/config/settings.*?js|https://assets.twitch.tv/config/settings.*?.js)"
             settings_url = re.search(regex_settings, response).group(1)
 
+            settings_request = safe_requests.get(settings_url, headers=headers)
             settings_request = requests.get(settings_url, headers=headers, timeout=60)
             response = settings_request.text
             regex_spade = '"spade_url":"(.*?)"'
@@ -351,6 +355,7 @@ class Twitch(object):
 
     def update_client_version(self):
         try:
+            response = safe_requests.get(URL)
             response = requests.get(URL, timeout=60)
             if response.status_code != 200:
                 logger.debug(
@@ -503,7 +508,7 @@ class Twitch(object):
                         RequestBroadcastQualitiesURL = f"https://usher.ttvnw.net/api/channel/hls/{streamers[index].username}.m3u8?sig={signature}&token={value}"
 
                         # Get list of video qualities
-                        responseBroadcastQualities = requests.get(RequestBroadcastQualitiesURL, headers={
+                        responseBroadcastQualities = safe_requests.get(RequestBroadcastQualitiesURL, headers={
                                                                   "User-Agent": self.user_agent}, timeout=20)  # timeout=60
                         logger.debug(
                             f"Send RequestBroadcastQualitiesURL request for {streamers[index]} - Status code: {responseBroadcastQualities.status_code}"
@@ -519,7 +524,7 @@ class Twitch(object):
                             continue
 
                         # Get list of video URLs
-                        responseStreamURLList = requests.get(BroadcastLowestQualityURL, headers={
+                        responseStreamURLList = safe_requests.get(BroadcastLowestQualityURL, headers={
                                                              "User-Agent": self.user_agent}, timeout=20)  # timeout=60
                         logger.debug(
                             f"Send BroadcastLowestQualityURL request for {streamers[index]} - Status code: {responseStreamURLList.status_code}"

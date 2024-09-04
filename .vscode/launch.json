@@ -6,7 +6,7 @@
     "configurations": [
         {
             "name": "Python: run.py",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${cwd}/run.py",
             "console": "integratedTerminal",

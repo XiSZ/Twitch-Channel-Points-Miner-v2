@@ -5,6 +5,11 @@ import time
 from copy import deepcopy
 from datetime import datetime, timezone
 from os import path
+from random import randrange
+from millify import millify
+
+from TwitchChannelPointsMiner.constants import USER_AGENTS, GITHUB_url
+from security import safe_requests
 
 import requests
 from millify import millify
@@ -165,7 +170,7 @@ def create_chunks(lst, n):
 
 
 def download_file(name, fpath):
-    r = requests.get(
+    r = safe_requests.get(
         path.join(GITHUB_url, name),
         headers={"User-Anget": get_user_agent("FIREFOX")},
         stream=True,
@@ -195,7 +200,7 @@ def check_versions():
     except Exception:
         current_version = "0.0.0"
     try:
-        r = requests.get(
+        r = safe_requests.get(
             "/".join(
                 [
                     s.strip("/")
