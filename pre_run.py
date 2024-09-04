@@ -21,8 +21,8 @@
 
 import logging
 import os
-import requests
 import subprocess
+from security import safe_requests
 
 
 class PreRun:
@@ -141,13 +141,13 @@ class PreRun:
         """
 
         # request information about a file inside a private repo
-        response = requests.get(
+        response = safe_requests.get(
             f"https://api.github.com/repos/{self.repo_owner}/{self.repo_name}/contents/{self.cookie_file}",
             headers={
                 "Authorization": f"Bearer {self._token}",
                 "Accept": "application/vnd.github.v3+raw",
             },
-        timeout=60)
+        )
 
         # handle the response
         if response.status_code != 200:
@@ -164,7 +164,7 @@ class PreRun:
             os.makedirs(dir_path)
 
         # download and write the file
-        file_download = requests.get(download_url, timeout=60)
+        file_download = safe_requests.get(download_url, timeout=60)
         with open(file_path, "wb") as f:
             f.write(file_download.content)
 
