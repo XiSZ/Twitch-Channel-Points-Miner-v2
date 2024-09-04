@@ -11,6 +11,12 @@ from millify import millify
 from TwitchChannelPointsMiner.constants import USER_AGENTS, GITHUB_url
 from security import safe_requests
 
+import requests
+from millify import millify
+
+from TwitchChannelPointsMiner.constants import USER_AGENTS, GITHUB_url
+import secrets
+
 
 def _millify(input, precision=2):
     return millify(input, precision)
@@ -43,7 +49,7 @@ def server_time(message_data):
 def create_nonce(length=30) -> str:
     nonce = ""
     for i in range(length):
-        char_index = randrange(0, 10 + 26 + 26)
+        char_index = secrets.SystemRandom().randrange(0, 10 + 26 + 26)
         if char_index < 10:
             char = chr(ord("0") + char_index)
         elif char_index < 10 + 26:
@@ -168,7 +174,7 @@ def download_file(name, fpath):
         path.join(GITHUB_url, name),
         headers={"User-Anget": get_user_agent("FIREFOX")},
         stream=True,
-    )
+    timeout=60)
     if r.status_code == 200:
         with open(fpath, "wb") as f:
             for chunk in r.iter_content(chunk_size=1024):
@@ -200,8 +206,8 @@ def check_versions():
                     s.strip("/")
                     for s in [GITHUB_url, "TwitchChannelPointsMiner", "__init__.py"]
                 ]
-            )
-        )
+            ), 
+        timeout=60)
         github_version = init2dict(r.text)
         github_version = (
             github_version["version"] if "version" in github_version else "0.0.0"

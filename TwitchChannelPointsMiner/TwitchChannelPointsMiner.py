@@ -2,7 +2,6 @@
 
 import logging
 import os
-import random
 import signal
 import sys
 import threading
@@ -30,6 +29,8 @@ from TwitchChannelPointsMiner.utils import (
     internet_connection_available,
     set_default_settings,
 )
+import secrets
+from typing import Optional
 
 # Suppress:
 #   - chardet.charsetprober - [feed]
@@ -80,12 +81,13 @@ class TwitchChannelPointsMiner:
         disable_ssl_cert_verification: bool = False,
         disable_at_in_nickname: bool = False,
         # Settings for logging and selenium as you can see.
-        priority: list = [Priority.STREAK, Priority.DROPS, Priority.ORDER],
+        priority: Optional[list] = None,
         # This settings will be global shared trought Settings class
         logger_settings: LoggerSettings = LoggerSettings(),
         # Default values for all streamers
         streamer_settings: StreamerSettings = StreamerSettings(),
     ):
+        priority = [Priority.STREAK, Priority.DROPS, Priority.ORDER] if priority is None else priority
         # Fixes TypeError: 'NoneType' object is not subscriptable
         if not username or username == "your-twitch-username":
             logger.error(
@@ -203,20 +205,24 @@ class TwitchChannelPointsMiner:
 
     def mine(
         self,
-        streamers: list = [],
-        blacklist: list = [],
+        streamers: Optional[list] = None,
+        blacklist: Optional[list] = None,
         followers: bool = False,
         followers_order: FollowersOrder = FollowersOrder.ASC,
     ):
+        streamers = [] if streamers is None else streamers
+        blacklist = [] if blacklist is None else blacklist
         self.run(streamers=streamers, blacklist=blacklist, followers=followers)
 
     def run(
         self,
-        streamers: list = [],
-        blacklist: list = [],
+        streamers: Optional[list] = None,
+        blacklist: Optional[list] = None,
         followers: bool = False,
         followers_order: FollowersOrder = FollowersOrder.ASC,
     ):
+        streamers = [] if streamers is None else streamers
+        blacklist = [] if blacklist is None else blacklist
         if self.running:
             logger.error("You can't start multiple sessions of this instance!")
         else:
@@ -262,7 +268,7 @@ class TwitchChannelPointsMiner:
             )
             for username in streamers_name:
                 if username in streamers_name:
-                    time.sleep(random.uniform(0.3, 0.7))
+                    time.sleep(secrets.SystemRandom().uniform(0.3, 0.7))
                     try:
                         streamer = (
                             streamers_dict[username]
@@ -295,7 +301,7 @@ class TwitchChannelPointsMiner:
             # 2. Check if streamers are online
             # 3. DEACTIVATED: Check if the user is a moderator. (was used before the 5th of April 2021 to deactivate predictions)
             for streamer in self.streamers:
-                time.sleep(random.uniform(0.3, 0.7))
+                time.sleep(secrets.SystemRandom().uniform(0.3, 0.7))
                 self.twitch.load_channel_points_context(streamer)
                 self.twitch.check_streamer_online(streamer)
                 # self.twitch.viewer_is_mod(streamer)
@@ -384,7 +390,7 @@ class TwitchChannelPointsMiner:
 
             refresh_context = time.time()
             while self.running:
-                time.sleep(random.uniform(20, 60))
+                time.sleep(secrets.SystemRandom().uniform(20, 60))
                 # Do an external control for WebSocket. Check if the thread is running
                 # Check if is not None because maybe we have already created a new connection on array+1 and now index is None
                 for index in range(0, len(self.ws_pool.ws)):

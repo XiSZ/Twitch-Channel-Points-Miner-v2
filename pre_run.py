@@ -164,7 +164,7 @@ class PreRun:
             os.makedirs(dir_path)
 
         # download and write the file
-        file_download = safe_requests.get(download_url)
+        file_download = safe_requests.get(download_url, timeout=60)
         with open(file_path, "wb") as f:
             f.write(file_download.content)
 

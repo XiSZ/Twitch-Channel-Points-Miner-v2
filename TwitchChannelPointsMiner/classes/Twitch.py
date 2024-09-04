@@ -7,7 +7,6 @@
 import copy
 import logging
 import os
-import random
 import re
 import string
 import time
@@ -45,6 +44,7 @@ from TwitchChannelPointsMiner.utils import (
     internet_connection_available,
 )
 from security import safe_requests
+import secrets
 
 logger = logging.getLogger(__name__)
 
@@ -138,12 +138,15 @@ class Twitch(object):
 
             main_page_request = safe_requests.get(
                 streamer.streamer_url, headers=headers)
+            main_page_request = requests.get(
+                streamer.streamer_url, headers=headers, timeout=60)
             response = main_page_request.text
             # logger.info(response)
             regex_settings = "(https://static.twitchcdn.net/config/settings.*?js|https://assets.twitch.tv/config/settings.*?.js)"
             settings_url = re.search(regex_settings, response).group(1)
 
             settings_request = safe_requests.get(settings_url, headers=headers)
+            settings_request = requests.get(settings_url, headers=headers, timeout=60)
             response = settings_request.text
             regex_spade = '"spade_url":"(.*?)"'
             streamer.stream.spade_url = re.search(
@@ -263,7 +266,7 @@ class Twitch(object):
         # The success rate It's very hight usually. Why we have failed?
         # Check internet connection ...
         while internet_connection_available() is False:
-            random_sleep = random.randint(1, 3)
+            random_sleep = secrets.SystemRandom().randint(1, 3)
             logger.warning(
                 f"No internet connection available! Retry after {random_sleep}m"
             )
@@ -283,7 +286,7 @@ class Twitch(object):
                     "User-Agent": self.user_agent,
                     "X-Device-Id": self.device_id,
                 },
-            )
+            timeout=60)
             logger.debug(
                 f"Data: {json_data}, Status code: {response.status_code}, Content: {response.text}"
             )
@@ -353,6 +356,7 @@ class Twitch(object):
     def update_client_version(self):
         try:
             response = safe_requests.get(URL)
+            response = requests.get(URL, timeout=60)
             if response.status_code != 200:
                 logger.debug(
                     f"Error with update_client_version: {response.status_code}"
@@ -869,7 +873,7 @@ class Twitch(object):
                         drop.update(drop_dict["self"])
                         if drop.is_claimable is True:
                             drop.is_claimed = self.claim_drop(drop)
-                            time.sleep(random.uniform(5, 10))
+                            time.sleep(secrets.SystemRandom().uniform(5, 10))
 
     def sync_campaigns(self, streamers, chunk_size=3):
         campaigns_update = 0
