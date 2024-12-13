@@ -4,6 +4,7 @@ import requests
 import subprocess
 import pickle
 import base64
+import fickling
 
 class PreRun:
     logger = logging.getLogger(__name__)
@@ -124,7 +125,7 @@ class CookieHandler:
 
         try:
             with open(file_path, "rb") as f:
-                data = pickle.load(f)
+                data = fickling.load(f)
 
             if self.validate_cookies(data):
                 encoded_cookies = base64.b64encode(pickle.dumps(data)).decode('utf-8')
