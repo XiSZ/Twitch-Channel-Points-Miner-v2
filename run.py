@@ -246,6 +246,7 @@ twitch_miner.mine(
         "faithcakee",
         "StPeach",
         "Xull",
+        "vell",
         "notaestheticallyhannah",
         "aryssa614",
         "thepizzawaffle",
