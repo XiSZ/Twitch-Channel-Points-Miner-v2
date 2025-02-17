@@ -11,4 +11,3 @@ irc
 pandas
 pytz
 validators
-re
