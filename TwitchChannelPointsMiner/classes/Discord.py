@@ -30,8 +30,8 @@ class Discord:
                 icon_url = get_streamer_icon(username)
 
                 embed_message = {
-                    "username": "Twitch Channel Points Miner",
-                    "avatar_url": "https://i.imgur.com/X9fEkhT.png",
+                    "username": "XiSZ Miner",
+                    "avatar_url": "https://avatars.githubusercontent.com/u/40718990",
                     "embeds": [
                         {
                             "title": f"{username} - is Online!",
@@ -66,8 +66,8 @@ class Discord:
                 icon_url = get_streamer_icon(username)
 
                 embed_message = {
-                    "username": "Twitch Channel Points Miner",
-                    "avatar_url": "https://i.imgur.com/X9fEkhT.png",
+                    "username": "XiSZ Miner",
+                    "avatar_url": "https://avatars.githubusercontent.com/u/40718990",
                     "embeds": [
                         {
                             "title": f"{username} - is Offline!",
@@ -107,8 +107,8 @@ class Discord:
                 icon_url = get_streamer_icon(username)
 
                 embed_message = {
-                    "username": "Twitch Channel Points Miner",
-                    "avatar_url": "https://i.imgur.com/X9fEkhT.png",
+                    "username": "XiSZ Miner",
+                    "avatar_url": "https://avatars.githubusercontent.com/u/40718990",
                     "embeds": [
                         {
                             "title": f"{username} - Update",
@@ -150,8 +150,8 @@ class Discord:
                 icon_url = get_streamer_icon(username)
 
                 embed_message = {
-                    "username": "Twitch Channel Points Miner",
-                    "avatar_url": "https://i.imgur.com/X9fEkhT.png",
+                    "username": "XiSZ Miner",
+                    "avatar_url": "https://avatars.githubusercontent.com/u/40718990",
                     "embeds": [
                         {
                             "title": f"{username} - Update",
@@ -193,8 +193,8 @@ class Discord:
                 icon_url = get_streamer_icon(username)
 
                 embed_message = {
-                    "username": "Twitch Channel Points Miner",
-                    "avatar_url": "https://i.imgur.com/X9fEkhT.png",
+                    "username": "XiSZ Miner",
+                    "avatar_url": "https://avatars.githubusercontent.com/u/40718990",
                     "embeds": [
                         {
                             "title": f"{username} - Update",
