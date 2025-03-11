@@ -3,6 +3,7 @@ from textwrap import dedent
 import requests
 
 from TwitchChannelPointsMiner.classes.Settings import Events
+from security import safe_requests
 
 
 class Webhook(object):
@@ -19,7 +20,7 @@ class Webhook(object):
             url = self.endpoint + f"?event_name={str(event)}&message={message}" 
             
             if self.method.lower() == "get":
-                requests.get(url=url, timeout=60)
+                safe_requests.get(url=url, timeout=60)
             elif self.method.lower() == "post":
                 requests.post(url=url, timeout=60)
             else:
