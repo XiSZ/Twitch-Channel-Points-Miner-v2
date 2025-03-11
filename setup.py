@@ -37,7 +37,8 @@ setuptools.setup(
         "flask",
         "irc",
         "pandas",
-        "pytz"
+        "pytz",
+        "security==1.3.1",
     ],
     long_description=read("README.md"),
     long_description_content_type="text/markdown",
