@@ -286,6 +286,7 @@ twitch_miner.mine(
         "Snowmixy",
         "al3xxandra",
         "ashtronova",
+        "smashedely",
         "terariaa",
         "emyym",
         "medumoon",
