@@ -21,4 +21,4 @@ class Discord(object):
                     "username": "XiSZ Miner",
                     "avatar_url": "https://avatars.githubusercontent.com/u/40718990",
                 },
-            )
+            timeout=60)
