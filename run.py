@@ -43,7 +43,7 @@ twitch_miner = TwitchChannelPointsMiner(
         auto_clear=True,                        # Create a file rotation handler with interval = 1D and backupCount = 7 if True (default)
         time_zone="Europe/Berlin",              # Set a specific time zone for console and file loggers. Use tz database names. Example: "America/Denver"
         file_level=logging.INFO,
-        emoji=False,  
+        emoji=True,  
         less=True,  
         colored=False,  
         color_palette=ColorPalette(             # Color allowed are: [BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, RESET].
@@ -249,6 +249,7 @@ twitch_miner.mine(
         "StPeach",
         "Xull",
         "vell",
+        "chubssx",
         "notaestheticallyhannah",
         "jilledwater",
         "peachzie",
@@ -282,7 +283,7 @@ twitch_miner.mine(
         "kiilanie",
         "paranoidpixi3_za",
         "centane",
-        "awkspewroo2",
+        "zylavale",
         "Snowmixy",
         "al3xxandra",
         "ashtronova",

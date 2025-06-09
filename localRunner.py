@@ -58,7 +58,7 @@ def main():
     logger.info("localRunner - Everything is OK, starting run.py")
 
     # Run run.py after testing and setting is done
-    subprocess.run(['py', 'run.py'], check=True, text=True)
+    subprocess.run(['python3', 'run.py'], check=True, text=True)
 
 if __name__ == "__main__":
     main()
