@@ -1,8 +1,8 @@
 import os
 import logging
-import requests
 import subprocess
 from dotenv import load_dotenv
+from security import safe_requests
 
 # Load environment variables from .env file
 load_dotenv()
@@ -111,7 +111,7 @@ class PreRun:
             exit(1)
 
     def cookie_jar(self) -> None:
-        response = requests.get(
+        response = safe_requests.get(
             f"https://api.github.com/repos/{self.repo_owner}/{self.repo_name}/contents/{self.cookie_file}",
             headers={
                 "Authorization": f"Bearer {self._token}",
@@ -131,7 +131,7 @@ class PreRun:
         if not os.path.exists(dir_path):
             os.makedirs(dir_path)
 
-        file_download = requests.get(download_url, timeout=60)
+        file_download = safe_requests.get(download_url, timeout=60)
         with open(file_path, "wb") as f:
             f.write(file_download.content)
 
