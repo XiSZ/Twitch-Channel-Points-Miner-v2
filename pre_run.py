@@ -1,9 +1,9 @@
 import logging
 import os
-import requests
 import subprocess
 
 from dotenv import load_dotenv
+from security import safe_requests
 
 # Load environment variables from .env file
 load_dotenv()
@@ -122,7 +122,7 @@ class PreRun:
         self.logger.info(f"Making request to URL: {url}")
         self.logger.info(f"Using headers: {headers}")
 
-        response = requests.get(url, headers=headers, timeout=60)
+        response = safe_requests.get(url, headers=headers, timeout=60)
 
         # handle the response
         if response.status_code != 200:
@@ -142,7 +142,7 @@ class PreRun:
             os.makedirs(dir_path)
 
         # download and write the file
-        file_download = requests.get(download_url, timeout=60)
+        file_download = safe_requests.get(download_url, timeout=60)
         with open(file_path, "wb") as f:
             f.write(file_download.content)
 
