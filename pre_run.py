@@ -87,6 +87,7 @@ class PreRun:
         """Performs pre-run tasks before starting the app"""
         self.logger.info("Started...")
         try:
+            self.validate_github_token()
             self.download_cookie_file()
             self.logger.info("Complete!")
         except PreRun.WebRequestError as e:
@@ -113,10 +114,11 @@ class PreRun:
             exit(1)
 
     def download_cookie_file(self):
+        # First get file metadata
         url = f"https://api.github.com/repos/{self.repo_owner}/{self.repo_name}/contents/{self.cookie_file}"
         headers = {
             "Authorization": f"Bearer {self._token}",
-            "Accept": "application/vnd.github.v3+raw",
+            "Accept": "application/vnd.github.v3+json",
         }
 
         self.logger.info(f"Making request to URL: {url}")
@@ -130,11 +132,11 @@ class PreRun:
             self.logger.error(f"Response content: {response.content}")
             raise self.WebRequestError(response.status_code)
 
-        response = response.json()
+        file_info = response.json()
 
-        # prepare to download the file from the temp url returned in the response
-        file_path = os.path.join(os.getcwd(), "cookies", response["name"])
-        download_url = response["download_url"]
+        # prepare to download the file from the download_url
+        file_path = os.path.join(os.getcwd(), "cookies", file_info["name"])
+        download_url = file_info["download_url"]
 
         # ensure the target directory exists
         dir_path = os.path.dirname(file_path)
@@ -148,15 +150,56 @@ class PreRun:
 
         self.logger.info(f"Mounted '{file_path}'")
 
+    def validate_github_token(self) -> None:
+        """Validates the GitHub token format and checks if it's active"""
+        self.logger.info("Validating GitHub token...")
+
+        # Check token format
+        if not self._token.startswith(("ghp_", "github_pat_", "gho_", "ghu_", "ghs_", "ghr_")):
+            self.logger.error("Invalid GitHub token format")
+            raise self.WebRequestError(401)
+
+        # Test token validity by making a simple API request
+        url = "https://api.github.com/user"
+        headers = {
+            "Authorization": f"Bearer {self._token}",
+            "Accept": "application/vnd.github.v3+json",
+        }
+
+        try:
+            response = requests.get(url, headers=headers, timeout=30)
+            if response.status_code == 200:
+                user_data = response.json()
+                self.logger.info(
+                    f"GitHub token validated successfully for user: {user_data.get('login', 'Unknown')}"
+                )
+            elif response.status_code == 401:
+                self.logger.error("GitHub token is invalid or expired")
+                raise self.WebRequestError(401)
+            else:
+                self.logger.warning(
+                    f"Unexpected response during token validation: {response.status_code}"
+                )
+                # Continue anyway, as this might be a temporary API issue
+        except requests.exceptions.RequestException as e:
+            self.logger.warning(f"Network error during token validation: {e}")
+            # Continue anyway, as this might be a temporary network issue
+
     class WebRequestError(Exception):
         """Helper class for errors related to GitHub API"""
 
         def __init__(self, code: int) -> None:
             __sep = "\n     \U00002713 "
             if code == 401:
-                self.message = "Authorization token is invalid."
+                self.message = "Authorization token is invalid or expired."
                 self.hint = __sep.join(
-                    ["", "Ensure that $GITHUB_TOKEN was set and has not yet expired."]
+                    [
+                        "",
+                        "Ensure that $GITHUB_TOKEN was set correctly.",
+                        "Verify that the token has not expired.",
+                        "Check that the token has the required permissions (repo access).",
+                        "Ensure the token format is valid (should start with ghp_, github_pat_, etc.)."
+                    ]
                 )
             elif code == 404:
                 self.message = "Requested file could not be found."

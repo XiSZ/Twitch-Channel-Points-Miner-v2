@@ -33,7 +33,7 @@ twitch_miner = TwitchChannelPointsMiner(
         Priority.DROPS,   
         Priority.ORDER  
     ],
-    enable_analytics=False,
+    enable_analytics=True,
     disable_ssl_cert_verification=False,        # Set to True at your own risk and only to fix SSL: CERTIFICATE_VERIFY_FAILED error
     disable_at_in_nickname=True,               # Set to True if you want to check for your nickname mentions in the chat even without @ sign
     logger_settings=LoggerSettings(
@@ -219,9 +219,17 @@ twitch_miner = TwitchChannelPointsMiner(
 )
 
 
-# twitch_miner.analytics(host='0.0.0.0', port=os.environ.get('PORT', 5050), refresh=5, days_ago=7)  # Start the Analytics web-server
+# For Serv00 hosting - Analytics dashboard
+twitch_miner.analytics(
+    host='0.0.0.0',  # Listen on all interfaces for Serv00
+    port=int(os.environ.get('PORT', 5050)),  # Use environment PORT or default to 5050
+    refresh=5,  # Refresh every 5 seconds
+    days_ago=30  # Show data from last 7 days
+)
 
-# twitch_miner.analytics(host='127.0.0.1', port=5050 , refresh=5, days_ago=7)  # Start the Analytics web-server
+# Local development version (uncomment for local testing)
+
+# twitch_miner.analytics(host='127.0.0.1', port=5050, refresh=5, days_ago=7)
 
 
 twitch_miner.mine(
