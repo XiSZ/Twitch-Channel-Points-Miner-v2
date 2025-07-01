@@ -21,6 +21,7 @@ from TwitchChannelPointsMiner.constants import CLIENT_ID, GQLOperations, USER_AG
 
 from datetime import datetime, timedelta, timezone
 from time import sleep
+import fickling
 
 logger = logging.getLogger(__name__)
 
@@ -325,7 +326,7 @@ class TwitchLogin(object):
 
     def load_cookies(self, cookies_file):
         if os.path.isfile(cookies_file):
-            self.cookies = pickle.load(open(cookies_file, "rb"))
+            self.cookies = fickling.load(open(cookies_file, "rb"))
         else:
             raise WrongCookiesException("There must be a cookies file!")
 
