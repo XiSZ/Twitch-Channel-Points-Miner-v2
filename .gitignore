@@ -157,11 +157,9 @@ keep_replit_alive.py
 .replit
 replit.nix
 
-# VsCode
-/.vscode/*
-
 # Vercel
 .vercel
 
 # custom
 xiszttv
+.vscode
