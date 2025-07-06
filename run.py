@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-import logging,os
+import logging
+import os
+
 # from colorama import Fore
 from TwitchChannelPointsMiner import TwitchChannelPointsMiner
 from TwitchChannelPointsMiner.logger import LoggerSettings, ColorPalette
@@ -11,78 +13,87 @@ from TwitchChannelPointsMiner.classes.Matrix import Matrix
 from TwitchChannelPointsMiner.classes.Pushover import Pushover
 from TwitchChannelPointsMiner.classes.Gotify import Gotify
 from TwitchChannelPointsMiner.classes.Settings import Priority, Events, FollowersOrder
-from TwitchChannelPointsMiner.classes.entities.Bet import Strategy, BetSettings, Condition, OutcomeKeys,FilterCondition, DelayMode
-from TwitchChannelPointsMiner.classes.entities.Streamer import Streamer, StreamerSettings
+from TwitchChannelPointsMiner.classes.entities.Bet import (
+    Strategy,
+    BetSettings,
+    Condition,
+    OutcomeKeys,
+    FilterCondition,
+    DelayMode,
+)
+from TwitchChannelPointsMiner.classes.entities.Streamer import (
+    Streamer,
+    StreamerSettings,
+)
+from TwitchChannelPointsMiner.utils import print_network_info
 
-# import keep_alive 
+# import keep_alive
 # #keep_alive.keep_alive()
 
 user = os.getenv("USER")
-password = os.getenv('PASSWORD')
-webHook = os.getenv('WEBHOOK')
-chatID = os.getenv('CHATID')
-telegramToken = os.getenv('TELEGRAMTOKEN')
+password = os.getenv("PASSWORD")
+webHook = os.getenv("WEBHOOK") or ""
+chatID = os.getenv("CHATID")
+telegramToken = os.getenv("TELEGRAMTOKEN")
 
 
 twitch_miner = TwitchChannelPointsMiner(
     username="XiSZ_",
-    password=password,  
-    claim_drops_startup=True,  
-    priority=[  
-        Priority.STREAK,  
-        Priority.DROPS,   
-        Priority.ORDER  
-    ],
+    password=password,
+    claim_drops_startup=True,
+    priority=[Priority.STREAK, Priority.DROPS, Priority.ORDER],
     enable_analytics=True,
-    disable_ssl_cert_verification=False,        # Set to True at your own risk and only to fix SSL: CERTIFICATE_VERIFY_FAILED error
-    disable_at_in_nickname=True,               # Set to True if you want to check for your nickname mentions in the chat even without @ sign
+    # Set to True at your own risk
+    # and only to fix SSL: CERTIFICATE_VERIFY_FAILED error
+    disable_ssl_cert_verification=False,
+    # Set to True if you want to check for your nickname mentions
+    # in the chat even without @ sign
+    disable_at_in_nickname=True,
     logger_settings=LoggerSettings(
-        save=False,  
+        save=False,
         console_level=logging.INFO,
         console_username=False,
-        auto_clear=True,                        # Create a file rotation handler with interval = 1D and backupCount = 7 if True (default)
-        time_zone="Europe/Berlin",              # Set a specific time zone for console and file loggers. Use tz database names. Example: "America/Denver"
+        # Create a file rotation handler
+        # with interval = 1D and backupCount = 7 if True (default)
+        auto_clear=True,
+        # Set a specific time zone for console and file loggers.
+        # Use tz database names. Example: "America/Denver"
+        time_zone="Europe/Berlin",
         file_level=logging.INFO,
-        emoji=True,  
-        less=True,  
-        colored=False,  
-        color_palette=ColorPalette(             # Color allowed are: [BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, RESET].
-                STREAMER_ONLINE='GREEN',
-                STREAMER_OFFLINE='RED',
-
-                BONUS_CLAIM='YELLOW',
-                MOMENT_CLAIM='YELLOW',
-                
-                DROP_CLAIM='YELLOW',
-                DROP_STATUS='MAGENTA',
-                
-                GAIN_FOR_RAID='BLUE',
-                GAIN_FOR_CLAIM='YELLOW',
-                GAIN_FOR_WATCH='BLUE',
-                GAIN_FOR_WATCH_STREAK='BLUE',
-
-                CHAT_MENTION='WHITE'
-        ),                                                                                        # Only these events will be sent to the endpoint
-        telegram=Telegram(  
+        emoji=True,
+        less=True,
+        colored=False,
+        color_palette=ColorPalette(  # Color allowed are: [BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, RESET].
+            STREAMER_ONLINE="GREEN",
+            STREAMER_OFFLINE="RED",
+            BONUS_CLAIM="YELLOW",
+            MOMENT_CLAIM="YELLOW",
+            DROP_CLAIM="YELLOW",
+            DROP_STATUS="MAGENTA",
+            GAIN_FOR_RAID="BLUE",
+            GAIN_FOR_CLAIM="YELLOW",
+            GAIN_FOR_WATCH="BLUE",
+            GAIN_FOR_WATCH_STREAK="BLUE",
+            CHAT_MENTION="WHITE",
+            # Only these events will be sent to the endpoint
+        ),
+        telegram=Telegram(
             chat_id=chatID,
             token=telegramToken,
             events=[
                 Events.STREAMER_ONLINE,
                 Events.STREAMER_OFFLINE,
-                
                 Events.BONUS_CLAIM,
                 Events.MOMENT_CLAIM,
-                
                 Events.DROP_CLAIM,
                 Events.DROP_STATUS,
-                
                 Events.GAIN_FOR_RAID,
                 Events.GAIN_FOR_CLAIM,
                 Events.GAIN_FOR_WATCH,
                 Events.GAIN_FOR_WATCH_STREAK,
-                
-                Events.CHAT_MENTION
-            ],                                                                                  # Only these events will be sent to the endpoint
+                Events.CHAT_MENTION,
+                # Only these events will be sent to the endpoint
+            ],
             disable_notification=True,
         ),
         discord=Discord(
@@ -90,109 +101,106 @@ twitch_miner = TwitchChannelPointsMiner(
             events=[
                 Events.STREAMER_ONLINE,
                 Events.STREAMER_OFFLINE,
-                
                 Events.BONUS_CLAIM,
                 Events.MOMENT_CLAIM,
-                
                 Events.DROP_CLAIM,
                 Events.DROP_STATUS,
-                
                 Events.GAIN_FOR_RAID,
                 Events.GAIN_FOR_CLAIM,
                 Events.GAIN_FOR_WATCH,
                 Events.GAIN_FOR_WATCH_STREAK,
-                
-                Events.CHAT_MENTION
-                ],
-            ),                                                                                  # Only these events will be sent to the endpoint
-            webhook=Webhook(
-            endpoint="https://example.com/webhook",                                             # Webhook URL
-            method="GET",                                                                       # GET or POST
+                Events.CHAT_MENTION,
+            ],
+            # Only these events will be sent to the endpoint
+        ),
+        webhook=Webhook(
+            # Webhook URL
+            endpoint="https://example.com/webhook",
+            # GET or POST
+            method="GET",
             events=[
                 Events.STREAMER_ONLINE,
                 Events.STREAMER_OFFLINE,
-                
                 Events.BONUS_CLAIM,
                 Events.MOMENT_CLAIM,
-                
                 Events.DROP_CLAIM,
                 Events.DROP_STATUS,
-                
                 Events.GAIN_FOR_RAID,
                 Events.GAIN_FOR_CLAIM,
                 Events.GAIN_FOR_WATCH,
                 Events.GAIN_FOR_WATCH_STREAK,
-                
-                Events.CHAT_MENTION
-                ],                                                                                  # Only these events will be sent to the endpoint
-            ),
-            matrix=Matrix(
-            username="twitch_miner",                                                            # Matrix username (without homeserver)
-            password="...",                                                                     # Matrix password
-            homeserver="matrix.org",                                                            # Matrix homeserver
-            room_id="...",                                                                      # Room ID
+                Events.CHAT_MENTION,
+                # Only these events will be sent to the endpoint
+            ],
+        ),
+        matrix=Matrix(
+            # Matrix username (without homeserver)
+            username="twitch_miner",
+            # Matrix password
+            password="...",
+            # Matrix homeserver
+            homeserver="matrix.org",
+            # Room ID
+            room_id="...",
             events=[
                 Events.STREAMER_ONLINE,
                 Events.STREAMER_OFFLINE,
-                
                 Events.BONUS_CLAIM,
                 Events.MOMENT_CLAIM,
-                
                 Events.DROP_CLAIM,
                 Events.DROP_STATUS,
-                
                 Events.GAIN_FOR_RAID,
                 Events.GAIN_FOR_CLAIM,
                 Events.GAIN_FOR_WATCH,
                 Events.GAIN_FOR_WATCH_STREAK,
-                
-                Events.CHAT_MENTION
-                ],                                                                                  # Only these events will be sent
-            ),
-            pushover=Pushover(
-            userkey="YOUR-ACCOUNT-TOKEN",                                                       # Login to https://pushover.net/, the user token is on the main page
-            token="YOUR-APPLICATION-TOKEN",                                                     # Create a application on the website, and use the token shown in your application
-            priority=0,                                                                         # Read more about priority here: https://pushover.net/api#priority
-            sound="pushover",                                                                   # A list of sounds can be found here: https://pushover.net/api#sounds
+                Events.CHAT_MENTION,
+                # Only these events will be sent
+            ],
+        ),
+        pushover=Pushover(
+            # Login to https://pushover.net/,
+            # the user token is on the main page
+            userkey="YOUR-ACCOUNT-TOKEN",
+            # Create a application on the website,
+            # and use the token shown in your application
+            token="YOUR-APPLICATION-TOKEN",
+            # Read more about priority here: https://pushover.net/api#priority
+            priority=0,
+            # A list of sounds can be found here:
+            # https://pushover.net/api#sounds
+            sound="pushover",
             events=[
                 Events.STREAMER_ONLINE,
                 Events.STREAMER_OFFLINE,
-                
                 Events.BONUS_CLAIM,
                 Events.MOMENT_CLAIM,
-                
                 Events.DROP_CLAIM,
                 Events.DROP_STATUS,
-                
                 Events.GAIN_FOR_RAID,
                 Events.GAIN_FOR_CLAIM,
                 Events.GAIN_FOR_WATCH,
                 Events.GAIN_FOR_WATCH_STREAK,
-                
-                Events.CHAT_MENTION
-                ],                                                                                  # Only these events will be sent
-            ),
-            gotify=Gotify(
+                Events.CHAT_MENTION,
+                # Only these events will be sent
+            ],
+        ),
+        gotify=Gotify(
             endpoint="https://example.com/message?token=TOKEN",
             priority=8,
             events=[
                 Events.STREAMER_ONLINE,
                 Events.STREAMER_OFFLINE,
-                
                 Events.BONUS_CLAIM,
                 Events.MOMENT_CLAIM,
-                
                 Events.DROP_CLAIM,
                 Events.DROP_STATUS,
-                
                 Events.GAIN_FOR_RAID,
                 Events.GAIN_FOR_CLAIM,
                 Events.GAIN_FOR_WATCH,
                 Events.GAIN_FOR_WATCH_STREAK,
-                
-                Events.CHAT_MENTION
-                ],  
-            )
+                Events.CHAT_MENTION,
+            ],
+        ),
     ),
     streamer_settings=StreamerSettings(
         make_predictions=False,
@@ -201,30 +209,40 @@ twitch_miner = TwitchChannelPointsMiner(
         watch_streak=True,
         chat=ChatPresence.ONLINE,
         bet=BetSettings(
-            strategy=Strategy.SMART, 
-            percentage=5,  
-            percentage_gap=20,  
-            max_points=50000, 
+            strategy=Strategy.SMART,
+            percentage=5,
+            percentage_gap=20,
+            max_points=50000,
             stealth_mode=True,
             delay_mode=DelayMode.FROM_END,
             delay=6,
             minimum_points=20000,
             filter_condition=FilterCondition(
-                by=OutcomeKeys.TOTAL_USERS,
-                where=Condition.LTE,
-                value=800
-            )
-        )
-    )
+                by=OutcomeKeys.TOTAL_USERS, where=Condition.LTE, value=800
+            ),
+        ),
+    ),
 )
 
 
 # For Serv00 hosting - Analytics dashboard
+# Option 1: Manual host specification (your current approach)
+# twitch_miner.analytics(
+#     host="0.0.0.0",  # Listen on all interfaces for Serv00
+#     # Use environment PORT or default to 5050
+#     port=int(os.environ.get("PORT", 5050)),
+#     refresh=5,  # Refresh every 5 seconds
+#     days_ago=30,  # Show data from last 30 days
+# )
+
+# Option 2: Auto-detect local IP (uncomment to use)
+
+print_network_info()  # Show available network options
 twitch_miner.analytics(
-    host='0.0.0.0',  # Listen on all interfaces for Serv00
-    port=int(os.environ.get('PORT', 5050)),  # Use environment PORT or default to 5050
-    refresh=5,  # Refresh every 5 seconds
-    days_ago=30  # Show data from last 7 days
+    auto_detect_host=True,  # Automatically detect local IP
+    port=int(os.environ.get("PORT", 5050)),
+    refresh=5,
+    days_ago=30,
 )
 
 # Local development version (uncomment for local testing)
@@ -233,18 +251,23 @@ twitch_miner.analytics(
 
 
 twitch_miner.mine(
-    [     
-        Streamer("warframe",    settings=StreamerSettings(chat=ChatPresence.ONLINE)),
+    [
+        Streamer("warframe", settings=StreamerSettings(
+            chat=ChatPresence.ONLINE)),
         "ralumyst",
-        Streamer ("xhenniii",   settings=StreamerSettings(chat=ChatPresence.ONLINE)),
-        "melvniely", 
+        Streamer("xhenniii", settings=StreamerSettings(
+            chat=ChatPresence.ONLINE)),
+        "melvniely",
         "cypathic",
         "dessyy",
         "lauraa",
         "asleyia",
         "karmixxy",
         "matildathepotato",
+        "chubssx",
         "martey0",
+        "Xull",
+        "vell",
         "shabs",
         "punzzl",
         "mathy",
@@ -252,12 +275,10 @@ twitch_miner.mine(
         "kittxnlylol",
         "yourluckyclover",
         "helenalive",
+        "thisispnut",
         "jenna",
         "faithcakee",
         "StPeach",
-        "Xull",
-        "vell",
-        "chubssx",
         "notaestheticallyhannah",
         "jilledwater",
         "peachzie",
@@ -267,8 +288,8 @@ twitch_miner.mine(
         "aryssa614",
         "shan",
         "avivasofia",
-        "ggxenia", 
-        "midoriopup",        
+        "ggxenia",
+        "midoriopup",
         "yololaryy",
         "meowdalyn",
         "ladyxblake",
@@ -299,7 +320,7 @@ twitch_miner.mine(
         "terariaa",
         "emyym",
         "medumoon",
-        "majijej", 
+        "majijej",
         "hekimae",
         "loosh_",
         "ohKayBunny",
@@ -307,11 +328,11 @@ twitch_miner.mine(
         "laurenxburch",
         "juliaburch",
         "chloelock",
-        "ibbaa", 
+        "ibbaa",
         "itspinkwater",
         "justcallmemary",
         "kiaa",
-        "rhyaree", 
+        "rhyaree",
         "ki_pi",
         "hannahmelin",
         "maawlin",
@@ -321,7 +342,7 @@ twitch_miner.mine(
         "marteemilie",
         "maryydlg",
         "manyissues",
-        "LadyKandice", 
+        "LadyKandice",
         "rainingshady",
         "sambivalent",
         "saaravaa",
@@ -331,15 +352,15 @@ twitch_miner.mine(
         "Maggie",
         "MissRage",
         "Siri",
-        "smoodie", 
+        "smoodie",
         "lillithy",
         "suzikynz",
         "laurinchhhe",
         "alisa",
         "danucd",
         "BattleBuni",
-        "carolinestormi"
+        "carolinestormi",
     ],
-    followers=False,  
-    followers_order=FollowersOrder.DESC
+    followers=False,
+    followers_order=FollowersOrder.DESC,
 )

@@ -169,7 +169,7 @@ def download_file(name, fpath):
         path.join(GITHUB_url, name),
         headers={"User-Agent": get_user_agent("FIREFOX")},
         stream=True,
-    timeout=60)
+        timeout=60)
     if r.status_code == 200:
         with open(fpath, "wb") as f:
             for chunk in r.iter_content(chunk_size=1024):
@@ -201,8 +201,8 @@ def check_versions():
                     s.strip("/")
                     for s in [GITHUB_url, "TwitchChannelPointsMiner", "__init__.py"]
                 ]
-            ), 
-        timeout=60)
+            ),
+            timeout=60)
         github_version = init2dict(r.text)
         github_version = (
             github_version["version"] if "version" in github_version else "0.0.0"
@@ -210,3 +210,75 @@ def check_versions():
     except Exception:
         github_version = "0.0.0"
     return current_version, github_version
+
+
+def get_local_ip() -> str:
+    """
+    Get the local IP address of the machine.
+    Returns the local IP that would be used to connect to the internet.
+    Falls back to localhost if detection fails.
+    """
+    try:
+        # Create a socket and connect to a remote address to determine local IP
+        # This doesn't send data, just determines which interface would be used
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            # Use Google's public DNS server as the remote address
+            s.connect(("8.8.8.8", 80))
+            local_ip = s.getsockname()[0]
+            return local_ip
+    except Exception:
+        # Fallback to localhost if detection fails
+        return "127.0.0.1"
+
+
+def get_hostname() -> str:
+    """
+    Get the hostname of the machine.
+    """
+    try:
+        return socket.gethostname()
+    except Exception:
+        return "localhost"
+
+
+def get_all_network_interfaces() -> dict:
+    """
+    Get information about available network interfaces.
+    Returns a dictionary with interface details.
+    """
+    interfaces = {
+        "localhost": "127.0.0.1",
+        "all_interfaces": "0.0.0.0",
+        "local_ip": get_local_ip(),
+        "hostname": get_hostname()
+    }
+
+    try:
+        # Get the fully qualified domain name
+        interfaces["fqdn"] = socket.getfqdn()
+    except Exception:
+        interfaces["fqdn"] = get_hostname()
+
+    return interfaces
+
+
+def print_network_info():
+    """
+    Print information about available network interfaces and options.
+    Useful for understanding what host options are available.
+    """
+    interfaces = get_all_network_interfaces()
+
+    print("=== Network Interface Information ===")
+    print(f"Localhost (loopback): {interfaces['localhost']}")
+    print(f"All interfaces (bind to all): {interfaces['all_interfaces']}")
+    print(f"Detected local IP: {interfaces['local_ip']}")
+    print(f"Hostname: {interfaces['hostname']}")
+    print(f"FQDN: {interfaces['fqdn']}")
+    print()
+    print("Host Configuration Options:")
+    print("- Use '127.0.0.1' for local access only")
+    print("- Use '0.0.0.0' to listen on all interfaces (public access)")
+    print(f"- Use '{interfaces['local_ip']}' for local network access")
+    print("- Use auto_detect_host=True for automatic local IP detection")
+    print("==========================================")
