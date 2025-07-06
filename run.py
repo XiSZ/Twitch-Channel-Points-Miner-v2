@@ -12,7 +12,11 @@ from TwitchChannelPointsMiner.classes.Telegram import Telegram
 from TwitchChannelPointsMiner.classes.Matrix import Matrix
 from TwitchChannelPointsMiner.classes.Pushover import Pushover
 from TwitchChannelPointsMiner.classes.Gotify import Gotify
-from TwitchChannelPointsMiner.classes.Settings import Priority, Events, FollowersOrder
+from TwitchChannelPointsMiner.classes.Settings import (
+    Priority,
+    Events,
+    FollowersOrder,
+)
 from TwitchChannelPointsMiner.classes.entities.Bet import (
     Strategy,
     BetSettings,
@@ -25,7 +29,11 @@ from TwitchChannelPointsMiner.classes.entities.Streamer import (
     Streamer,
     StreamerSettings,
 )
-from TwitchChannelPointsMiner.utils import print_network_info
+from TwitchChannelPointsMiner.utils import (
+    print_network_info,
+    get_local_ip,
+    get_all_network_interfaces,
+)
 
 # import keep_alive
 # #keep_alive.keep_alive()
@@ -63,7 +71,9 @@ twitch_miner = TwitchChannelPointsMiner(
         emoji=True,
         less=True,
         colored=False,
-        color_palette=ColorPalette(  # Color allowed are: [BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, RESET].
+        # Color allowed are: BLACK, RED, GREEN, YELLOW,
+        # BLUE, MAGENTA, CYAN, WHITE, RESET
+        color_palette=ColorPalette(
             STREAMER_ONLINE="GREEN",
             STREAMER_OFFLINE="RED",
             BONUS_CLAIM="YELLOW",
@@ -237,11 +247,20 @@ twitch_miner = TwitchChannelPointsMiner(
 
 # Option 2: Auto-detect local IP (uncomment to use)
 
+# Get your local IP
+local_ip = get_local_ip()
+print(f"Detected local IP: {local_ip}")
+
+# Get all available interfaces
+interfaces = get_all_network_interfaces()
+print(f"Available interfaces: {interfaces}")
+
 print_network_info()  # Show available network options
+
 twitch_miner.analytics(
     auto_detect_host=True,  # Automatically detect local IP
     port=int(os.environ.get("PORT", 5050)),
-    refresh=5,
+    refresh=60,
     days_ago=30,
 )
 
