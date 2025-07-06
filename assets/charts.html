@@ -1,209 +1,394 @@
 <!DOCTYPE html>
 <html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Twitch-Channel-Points-Miner-v2</title>
-    <link rel="icon" type="image/png" sizes="32x32"
-        href="https://static.twitchcdn.net/assets/favicon-32-e29e246c157142c94346.png">
-    <link rel="icon" type="image/png" sizes="16x16"
-        href="https://static.twitchcdn.net/assets/favicon-16-52e571ffea063af7a7f4.png">
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="https://static.twitchcdn.net/assets/favicon-32-e29e246c157142c94346.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="https://static.twitchcdn.net/assets/favicon-16-52e571ffea063af7a7f4.png"
+    />
 
     <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.42.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.css" rel="stylesheet" />
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.6.1/css/bulma.css" rel="stylesheet" />
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet"
-        integrity="sha512-1ycn6IcaQQ40/MKBW2W4Rhis/DbILU74C1vSrLJxCq57o941Ym01SwNsOMqvEBFlcgUa6xLiPY/NS5R+E6ztJQ=="
-        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.6.1/css/bulma.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"
+      rel="stylesheet"
+      integrity="sha512-1ycn6IcaQQ40/MKBW2W4Rhis/DbILU74C1vSrLJxCq57o941Ym01SwNsOMqvEBFlcgUa6xLiPY/NS5R+E6ztJQ=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
 
-    <link href="{{url_for('static', filename='dark-theme.css')}}" rel="stylesheet" />
+    <link
+      href="{{url_for('static', filename='dark-theme.css')}}"
+      rel="stylesheet"
+    />
     <link href="{{url_for('static', filename='style.css')}}" rel="stylesheet" />
+  </head>
 
-</head>
+  <body style="height: 100vh">
+    <div class="container has-text-centered" style="height: 100vh">
+      <div class="columns" id="header">
+        <div class="column has-text-right">
+          <a
+            href="https://github.com/XiSZ/Twitch-Channel-Points-Miner-v2"
+            target="_blank"
+            ><img
+              style="margin-top: -20px"
+              width="600px"
+              src="{{url_for('static', filename='banner.png')}}"
+              alt="banner"
+          /></a>
+        </div>
+        <div class="column is-4 has-text-centered" style="margin-top: 35px">
+          <div style="margin-bottom: 20px">
+            <div style="margin-bottom: 15px">
+              <h4
+                style="
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  font-size: 1rem;
+                  font-weight: 600;
+                  color: inherit;
+                "
+              >
+                <i class="fab fa-github" style="font-size: 14px"></i> Repository
+                Info
+              </h4>
+            </div>
+            <div>
+              <p
+                style="
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  font-size: 0.8rem;
+                  color: #666;
+                "
+              >
+                by
+                <a href="https://github.com/XiSZ" target="_blank"
+                  ><strong>XiSZ</strong></a
+                >
+              </p>
+            </div>
+          </div>
 
-<body style="height: 100vh;">
-    <div class="container has-text-centered" style="height: 100vh;">
-        <div class="columns" id="header">
-            <div class="column has-text-right">
-                <a href="https://github.com/rdavydov/Twitch-Channel-Points-Miner-v2" target="_blank"><img
-                        style="margin-top: -20px;" width="600px" src="{{url_for('static', filename='banner.png')}}"
-                        alt="banner"></a>
-            </div>
-            <div class="column is-4 has-text-left" style="margin-top: 35px;">
-                <table>
-                    <tr>
-                        <td><a href="https://github.com/Tkd-Alex" target="_blank">Tkd-Alex</a></td>
-                        <td><a href="https://github.com/rdavydov" target="_blank">rdavydov</a></td>
-                    </tr>
-                    <tr>
-                        <td><a href="https://github.com/Tkd-Alex/Twitch-Channel-Points-Miner-v2/blob/master/LICENSE">
-                                <img alt="License"
-                                    src="https://img.shields.io/github/license/Tkd-Alex/Twitch-Channel-Points-Miner-v2" /></a>
-                        </td>
-                        <td><a href="https://github.com/rdavydov/Twitch-Channel-Points-Miner-v2/blob/master/LICENSE">
-                                <img alt="License"
-                                    src="https://img.shields.io/github/license/rdavydov/Twitch-Channel-Points-Miner-v2" /></a>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td><a href="https://www.python.org/downloads/release/python-360/">
-                                <img alt="Python3"
-                                    src="https://img.shields.io/badge/built%20for-Python≥3.6-red.svg?style=flat"></a>
-                        </td>
-                        <td><a href="https://www.python.org/downloads/release/python-360/">
-                                <img alt="Python3"
-                                    src="https://img.shields.io/badge/built%20for-Python≥3.6-red.svg?style=flat"></a>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td><a href="https://github.com/Tkd-Alex/Twitch-Channel-Points-Miner-v2/pulls">
-                                <img alt="PRsWelcome"
-                                    src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat" /></a>
-                        </td>
-                        <td><a href="https://github.com/rdavydov/Twitch-Channel-Points-Miner-v2/pulls">
-                                <img alt="PRsWelcome"
-                                    src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat" /></a>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td><a href="https://github.com/Tkd-Alex/Twitch-Channel-Points-Miner-v2/stargazers">
-                                <img alt="GitHub Repo stars"
-                                    src="https://img.shields.io/github/stars/Tkd-Alex/Twitch-Channel-Points-Miner-v2" /></a>
-                        </td>
-                        <td><a href="https://github.com/rdavydov/Twitch-Channel-Points-Miner-v2/stargazers">
-                                <img alt="GitHub Repo stars"
-                                    src="https://img.shields.io/github/stars/rdavydov/Twitch-Channel-Points-Miner-v2" /></a>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td><a
-                                href="https://github.com/Tkd-Alex/Twitch-Channel-Points-Miner-v2/issues?q=is%3Aissue+is%3Aclosed">
-                                <img alt="GitHub closed issues"
-                                    src="https://img.shields.io/github/issues-closed/Tkd-Alex/Twitch-Channel-Points-Miner-v2"></a>
-                        </td>
-                        <td><a
-                                href="https://github.com/rdavydov/Twitch-Channel-Points-Miner-v2/issues?q=is%3Aissue+is%3Aclosed">
-                                <img alt="GitHub closed issues"
-                                    src="https://img.shields.io/github/issues-closed/rdavydov/Twitch-Channel-Points-Miner-v2"></a>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td><a href="https://github.com/Tkd-Alex/Twitch-Channel-Points-Miner-v2">
-                                <img alt="GitHub last commit"
-                                    src="https://img.shields.io/github/last-commit/Tkd-Alex/Twitch-Channel-Points-Miner-v2" /></a>
-                        </td>
-                        <td><a href="https://github.com/rdavydov/Twitch-Channel-Points-Miner-v2">
-                                <img alt="GitHub last commit"
-                                    src="https://img.shields.io/github/last-commit/rdavydov/Twitch-Channel-Points-Miner-v2" /></a>
-                        </td>
-                    </tr>
-                </table>
-            </div>
-        </div>
+          <table style="margin: 0 auto">
+            <tr>
+              <td style="padding: 2px">
+                <a
+                  href="https://github.com/XiSZ/Twitch-Channel-Points-Miner-v2/blob/master/LICENSE"
+                  title="View License"
+                >
+                  <img
+                    alt="License"
+                    src="https://img.shields.io/github/license/XiSZ/Twitch-Channel-Points-Miner-v2?style=flat-square"
+                    style="height: 18px"
+                /></a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 2px">
+                <a
+                  href="https://www.python.org/downloads/release/python-360/"
+                  title="Python Compatibility"
+                >
+                  <img
+                    alt="Python3"
+                    src="https://img.shields.io/badge/built%20for-Python≥3.6-red.svg?style=flat-square"
+                    style="height: 18px"
+                /></a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 2px">
+                <a
+                  href="https://github.com/XiSZ/Twitch-Channel-Points-Miner-v2/pulls"
+                  title="Contribute to the project"
+                >
+                  <img
+                    alt="PRsWelcome"
+                    src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square"
+                    style="height: 18px"
+                /></a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 2px">
+                <a
+                  href="https://github.com/XiSZ/Twitch-Channel-Points-Miner-v2/stargazers"
+                  title="Star this repository"
+                >
+                  <img
+                    alt="GitHub Repo stars"
+                    src="https://img.shields.io/github/stars/XiSZ/Twitch-Channel-Points-Miner-v2?style=flat-square"
+                    style="height: 18px"
+                /></a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 2px">
+                <a
+                  href="https://github.com/XiSZ/Twitch-Channel-Points-Miner-v2/network/members"
+                  title="View forks"
+                >
+                  <img
+                    alt="GitHub forks"
+                    src="https://img.shields.io/github/forks/XiSZ/Twitch-Channel-Points-Miner-v2?style=flat-square"
+                    style="height: 18px"
+                /></a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 2px">
+                <a
+                  href="https://github.com/XiSZ/Twitch-Channel-Points-Miner-v2/issues"
+                  title="Report issues"
+                >
+                  <img
+                    alt="GitHub issues"
+                    src="https://img.shields.io/github/issues/XiSZ/Twitch-Channel-Points-Miner-v2?style=flat-square"
+                    style="height: 18px"
+                /></a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 2px">
+                <a
+                  href="https://github.com/XiSZ/Twitch-Channel-Points-Miner-v2/issues?q=is%3Aissue+is%3Aclosed"
+                  title="View closed issues"
+                >
+                  <img
+                    alt="GitHub closed issues"
+                    src="https://img.shields.io/github/issues-closed/XiSZ/Twitch-Channel-Points-Miner-v2?style=flat-square"
+                    style="height: 18px"
+                /></a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 2px">
+                <a
+                  href="https://github.com/XiSZ/Twitch-Channel-Points-Miner-v2"
+                  title="View repository"
+                >
+                  <img
+                    alt="GitHub last commit"
+                    src="https://img.shields.io/github/last-commit/XiSZ/Twitch-Channel-Points-Miner-v2?style=flat-square"
+                    style="height: 18px"
+                /></a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 2px">
+                <a
+                  href="https://github.com/MShawon/github-clone-count-badge"
+                  title="Repository views"
+                >
+                  <img
+                    alt="GitHub Traffic"
+                    src="https://img.shields.io/badge/dynamic/json?color=success&label=Views&query=count&url=https://gist.githubusercontent.com/rdavydov/ad9a3c6a8d9c322f9a6b62781ea94a93/raw/traffic.json&logo=github&style=flat-square"
+                    style="height: 18px"
+                /></a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 2px">
+                <a
+                  href="https://github.com/MShawon/github-clone-count-badge"
+                  title="Repository clones"
+                >
+                  <img
+                    alt="GitHub Clones"
+                    src="https://img.shields.io/badge/dynamic/json?color=purple&label=Clones&query=count&url=https://gist.githubusercontent.com/rdavydov/fed04b31a250ad522d9ea6547ce87f95/raw/clone.json&logo=github&style=flat-square"
+                    style="height: 18px"
+                /></a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 2px">
+                <a
+                  href="https://github.com/XiSZ/Twitch-Channel-Points-Miner-v2/graphs/commit-activity"
+                  title="View commit activity"
+                >
+                  <img
+                    alt="GitHub commit activity"
+                    src="https://img.shields.io/github/commit-activity/m/XiSZ/Twitch-Channel-Points-Miner-v2?style=flat-square"
+                    style="height: 18px"
+                /></a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 2px">
+                <a
+                  href="https://github.com/XiSZ/Twitch-Channel-Points-Miner-v2/graphs/contributors"
+                  title="View contributors"
+                >
+                  <img
+                    alt="GitHub contributors"
+                    src="https://img.shields.io/github/contributors/XiSZ/Twitch-Channel-Points-Miner-v2?style=flat-square"
+                    style="height: 18px"
+                /></a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 2px">
+                <a
+                  href="https://github.com/XiSZ/Twitch-Channel-Points-Miner-v2"
+                  title="Repository size"
+                >
+                  <img
+                    alt="GitHub repo size"
+                    src="https://img.shields.io/github/repo-size/XiSZ/Twitch-Channel-Points-Miner-v2?style=flat-square"
+                    style="height: 18px"
+                /></a>
+              </td>
+            </tr>
+          </table>
 
-        <div class="columns">
-            <div class="column is-narrow has-text-center">
-                <div class="dropdown">
-                    <div class="dropdown-trigger">
-                        <button class="button" aria-haspopup="true" aria-controls="dropdown-menu">
-                            <span id="sorting-by"></span>
-                            <span class="icon is-small">
-                                <i class="fas fa-angle-down" aria-hidden="true"></i>
-                            </span>
-                        </button>
-                    </div>
-                    <div class="dropdown-menu" id="dropdown-menu" role="menu">
-                        <div class="dropdown-content">
-                            <a href="#" class="dropdown-item" onClick="changeSortBy(this)">
-                                Name ascending
-                            </a>
-                            <a href="#" class="dropdown-item" onClick="changeSortBy(this)">
-                                Name descending
-                            </a>
-                            <a href="#" class="dropdown-item" onClick="changeSortBy(this)">
-                                Points ascending
-                            </a>
-                            <a href="#" class="dropdown-item" onClick="changeSortBy(this)">
-                                Points descending
-                            </a>
-                            <a href="#" class="dropdown-item" onClick="changeSortBy(this)">
-                                Last activity ascending
-                            </a>
-                            <a href="#" class="dropdown-item" onClick="changeSortBy(this)">
-                                Last activity descending
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="column is-2 has-text-left">
-                <input class="input" type="date" id="startDate">
-            </div>
-            <div class="column is-2 has-text-left">
-                <input class="input" type="date" id="endDate">
-            </div>
-            <div class="column has-text-right" style="margin: auto">
-                <button id="auto-update-log">⏸️</button>
-                <label class="checkbox checkbox-label">
-                    Log
-                    <input type="checkbox" id="log">
-                </label>
-                <label class="checkbox checkbox-label">
-                    Annotations
-                    <input type="checkbox" checked="true" id="annotations">
-                </label>
-                <label class="checkbox checkbox-label">
-                    Dark mode
-                    <input type="checkbox" checked="true" id="dark-mode">
-                </label>
-                <label class="checkbox checkbox-label">
-                    Header
-                    <input type="checkbox" checked="true" id="toggle-header">
-                </label>
-            </div>
+          <div style="margin-top: 12px">
+            <a
+              href="https://github.com/XiSZ/Twitch-Channel-Points-Miner-v2"
+              target="_blank"
+              class="button is-primary is-small"
+              style="font-size: 0.7rem; padding: 0.25rem 0.5rem"
+            >
+              <span class="icon is-small">
+                <i class="fab fa-github" style="font-size: 12px"></i>
+              </span>
+              <span>View on GitHub</span>
+            </a>
+          </div>
         </div>
-        <div class="columns">
-            <div class="column is-narrow">
-                <div class="tabs">
-                    <ul id="streamers-list"></ul>
-                </div>
+      </div>
+
+      <div class="columns">
+        <div class="column is-narrow has-text-center">
+          <div class="dropdown">
+            <div class="dropdown-trigger">
+              <button
+                class="button"
+                aria-haspopup="true"
+                aria-controls="dropdown-menu"
+              >
+                <span id="sorting-by"></span>
+                <span class="icon is-small">
+                  <i class="fas fa-angle-down" aria-hidden="true"></i>
+                </span>
+              </button>
             </div>
-            <div class="column">
-                <div class="box" id="chart" style="padding: 0.30rem;"></div>
+            <div class="dropdown-menu" id="dropdown-menu" role="menu">
+              <div class="dropdown-content">
+                <a href="#" class="dropdown-item" onClick="changeSortBy(this)">
+                  Name ascending
+                </a>
+                <a href="#" class="dropdown-item" onClick="changeSortBy(this)">
+                  Name descending
+                </a>
+                <a href="#" class="dropdown-item" onClick="changeSortBy(this)">
+                  Points ascending
+                </a>
+                <a href="#" class="dropdown-item" onClick="changeSortBy(this)">
+                  Points descending
+                </a>
+                <a href="#" class="dropdown-item" onClick="changeSortBy(this)">
+                  Last activity ascending
+                </a>
+                <a href="#" class="dropdown-item" onClick="changeSortBy(this)">
+                  Last activity descending
+                </a>
+              </div>
             </div>
+          </div>
         </div>
-        <div class="columns">
-            <div class="column is-12">
-                <div class="box" id="log-box" style="padding: 0.30rem; display: none;">
-                    <pre id="log-content">In your run.py file set save=True in logger_settings to save logs to a file.&#10;&#13;</pre>
-                </div>
-            </div>
+        <div class="column is-2 has-text-left">
+          <input class="input" type="date" id="startDate" />
         </div>
+        <div class="column is-2 has-text-left">
+          <input class="input" type="date" id="endDate" />
+        </div>
+        <div class="column has-text-right" style="margin: auto">
+          <button id="auto-update-log">⏸️</button>
+          <label class="checkbox checkbox-label">
+            Log
+            <input type="checkbox" id="log" />
+          </label>
+          <label class="checkbox checkbox-label">
+            Annotations
+            <input type="checkbox" checked="true" id="annotations" />
+          </label>
+          <label class="checkbox checkbox-label">
+            Dark mode
+            <input type="checkbox" checked="true" id="dark-mode" />
+          </label>
+          <label class="checkbox checkbox-label">
+            Header
+            <input type="checkbox" checked="true" id="toggle-header" />
+          </label>
+        </div>
+      </div>
+      <div class="columns">
+        <div class="column is-narrow">
+          <div class="tabs">
+            <ul id="streamers-list"></ul>
+          </div>
+        </div>
+        <div class="column">
+          <div class="box" id="chart" style="padding: 0.3rem"></div>
+        </div>
+      </div>
+      <div class="columns">
+        <div class="column is-12">
+          <div class="box" id="log-box" style="padding: 0.3rem; display: none">
+            <pre id="log-content">
+In your run.py file set save=True in logger_settings to save logs to a file.&#10;&#13;</pre
+            >
+          </div>
+        </div>
+      </div>
     </div>
-</body>
+  </body>
 
-<script type="text/javascript">
+  <script type="text/javascript">
     // n.b. Seems that we are unable to call Flask variable in JS code imported from JS file.
     // That's why "link[href='{{url_for('static', filename='dark-theme.css')}}']", {{ refresh }}, {{ daysAgo }} are here.
 
     function toggleDarkMode() {
-        var darkMode = $('#dark-mode').prop("checked")
-        $("link[href='{{url_for('static', filename='dark-theme.css')}}']").prop("disabled", !darkMode);
-        chart.updateOptions({
-            colors: darkMode === true ? ["#f9826c"] : ['#008ffb'],
-            chart: {
-                foreColor: darkMode === true ? "#fff" : '#373d3f'
-            },
-            tooltip: {
-                theme: darkMode === true ? "dark" : "light"
-            }
-        })
+      var darkMode = $("#dark-mode").prop("checked");
+      $("link[href='{{url_for('static', filename='dark-theme.css')}}']").prop(
+        "disabled",
+        !darkMode
+      );
+      chart.updateOptions({
+        colors: darkMode === true ? ["#f9826c"] : ["#008ffb"],
+        chart: {
+          foreColor: darkMode === true ? "#fff" : "#373d3f",
+        },
+        tooltip: {
+          theme: darkMode === true ? "dark" : "light",
+        },
+      });
     }
     var refresh = parseInt("{{ refresh }}");
     var daysAgo = parseInt("{{ daysAgo }}");
-</script>
-<script type="text/javascript" src="{{url_for('static', filename='script.js')}}"></script>
-
+  </script>
+  <script
+    type="text/javascript"
+    src="{{url_for('static', filename='script.js')}}"
+  ></script>
 </html>
