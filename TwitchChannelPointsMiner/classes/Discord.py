@@ -18,7 +18,10 @@ class Discord(object):
                 url=self.webhook_api,
                 data={
                     "content": dedent(message),
-                    "username": "XiSZ Miner",
-                    "avatar_url": "https://avatars.githubusercontent.com/u/40718990",
+                    "username": "XiSZ TTV Bot",
+                    "avatar_url": (
+                        "https://avatars.githubusercontent.com/u/40718990"
+                    ),
                 },
+                timeout=10,
             )

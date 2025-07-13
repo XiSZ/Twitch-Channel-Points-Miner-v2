@@ -132,7 +132,7 @@ class Streamer(object):
         self.toggle_chat()
 
         logger.info(
-            f"{self} is Offline!",
+            f"{self} is Offline! Stream was at {self.streamer_url}",
             extra={
                 "emoji": ":sleeping:",
                 "event": Events.STREAMER_OFFLINE,
@@ -148,7 +148,7 @@ class Streamer(object):
         self.toggle_chat()
 
         logger.info(
-            f"{self} is Online!",
+            f"{self} is Online! Watch at {self.streamer_url}",
             extra={
                 "emoji": ":partying_face:",
                 "event": Events.STREAMER_ONLINE,
@@ -253,7 +253,8 @@ class Streamer(object):
         with self.mutex:
             # Create and write to the temporary file
             with open(temp_fname, "w") as temp_file:
-                json_data = json.load(open(fname, "r")) if os.path.isfile(fname) else {}
+                json_data = json.load(
+                    open(fname, "r")) if os.path.isfile(fname) else {}
                 if key not in json_data:
                     json_data[key] = []
                 json_data[key].append(data)

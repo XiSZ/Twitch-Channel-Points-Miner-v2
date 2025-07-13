@@ -213,7 +213,8 @@ if [ -n "$WEBHOOK_URL" ]; then
         
         if command -v curl >/dev/null 2>&1; then
             local payload="{
-                \"username\": \"$(hostname) Test Bot\",
+                \"username\": \"Test Bot\",
+                \"avatar_url\": \"https://avatars.githubusercontent.com/u/40718990\",
                 \"embeds\": [{
                     \"title\": \"$title\",
                     \"description\": \"$message\",

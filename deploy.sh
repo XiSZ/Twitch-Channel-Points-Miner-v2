@@ -130,8 +130,8 @@ send_webhook() {
         if command -v curl >/dev/null 2>&1; then
             # Discord webhook payload with embeds for better formatting
             local payload="{
-                \"username\": \"$(hostname) Deploy Bot\",
-                \"avatar_url\": \"https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png\",
+                \"username\": \"Deploy Bot\",
+                \"avatar_url\": \"https://avatars.githubusercontent.com/u/40718990\",
                 \"embeds\": [{
                     \"title\": \"$title\",
                     \"description\": \"$message\",
