@@ -1,8 +1,8 @@
 #!/bin/sh
 
-# Comprehensive test script for FreeBSD/Serv00 deployment setup and Discord notifications
+# Comprehensive test script for FreeBSD/Serv00 deployment setup and notifications
 
-echo "=== FreeBSD/Serv00 Deployment & Discord Test Suite ==="
+echo "=== FreeBSD/Serv00 Deployment & Notification Test Suite ==="
 echo
 
 # Colors for test output
@@ -126,7 +126,7 @@ if [ -f ".env" ]; then
             *)
                 # Hide sensitive values
                 case "$key" in
-                    *PASSWORD*|*TOKEN*|*SECRET*|*WEBHOOK*)
+                    *PASSWORD*|*TOKEN*|*SECRET*|*WEBHOOK*|*CHATID*)
                         echo "     $key=***HIDDEN***"
                         ;;
                     *)
@@ -154,9 +154,9 @@ else
 fi
 
 echo
-echo "${BLUE}7. Discord Webhook Tests:${NC}"
+echo "${BLUE}7. Notification Services Tests:${NC}"
 
-# Load .env for webhook testing
+# Load .env for notification testing
 if [ -f ".env" ]; then
     while IFS='=' read -r key value; do
         case "$key" in
@@ -167,10 +167,13 @@ if [ -f ".env" ]; then
     done < ".env"
 fi
 
+# Discord Webhook Tests
+echo
+echo "${BLUE}7a. Discord Webhook Tests:${NC}"
 WEBHOOK_URL="${WEBHOOK:-}"
 
 if [ -n "$WEBHOOK_URL" ]; then
-    echo "   ${GREEN}✓${NC} Webhook URL configured"
+    echo "   ${GREEN}✓${NC} Discord webhook URL configured"
     
     # Test webhook URL format
     case "$WEBHOOK_URL" in
@@ -187,9 +190,9 @@ if [ -n "$WEBHOOK_URL" ]; then
     
     # Test webhook connectivity
     if command -v curl >/dev/null 2>&1; then
-        run_test "Webhook connectivity (curl)" "curl -s --connect-timeout 5 --head '$WEBHOOK_URL' | head -1 | grep -q '200\\|204'"
+        run_test "Discord webhook connectivity (curl)" "curl -s --connect-timeout 5 --head '$WEBHOOK_URL' | head -1 | grep -q '200\\|204'"
     elif command -v fetch >/dev/null 2>&1; then
-        run_test "Webhook connectivity (fetch)" "fetch -q -o /dev/null -T 5 '$WEBHOOK_URL'"
+        run_test "Discord webhook connectivity (fetch)" "fetch -q -o /dev/null -T 5 '$WEBHOOK_URL'"
     fi
     
     # Test Discord notification function
@@ -248,6 +251,135 @@ if [ -n "$WEBHOOK_URL" ]; then
             
             local temp_file="$HOME/tmp/test_webhook_$$"
             mkdir -p "$HOME/tmp" 2>/dev/null
+            printf '%s\n' "$simple_payload" > "$temp_file"
+            fetch -q -o /dev/null -T 30 \
+                --method=POST \
+                --header="Content-Type: application/json" \
+                --upload-file="$temp_file" \
+                "$WEBHOOK_URL" 2>/dev/null
+            rm -f "$temp_file"
+        fi
+    }
+    
+    run_test "Send test Discord notification" "test_discord_notification 'Test suite is running successfully! All systems operational.' 'info'"
+    
+else
+    printf "Testing %-50s${YELLOW}⚠ SKIP${NC} (no webhook URL)\n" "Discord webhook"
+    echo "   ${YELLOW}⚠${NC} Set WEBHOOK in .env file to test Discord notifications"
+fi
+
+# Telegram Bot Tests
+echo
+echo "${BLUE}7b. Telegram Bot Tests:${NC}"
+TELEGRAM_TOKEN="${TELEGRAMTOKEN:-}"
+TELEGRAM_CHAT_ID="${CHATID:-}"
+
+if [ -n "$TELEGRAM_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
+    echo "   ${GREEN}✓${NC} Telegram bot token and chat ID configured"
+    
+    # Test token format (basic check)
+    case "$TELEGRAM_TOKEN" in
+        *:*)
+            run_test "Telegram token format" "true"
+            ;;
+        *)
+            printf "Testing %-50s${YELLOW}⚠ WARN${NC} (invalid format)\n" "Telegram token format"
+            ;;
+    esac
+    
+    # Test chat ID format (should be numeric or start with -)
+    case "$TELEGRAM_CHAT_ID" in
+        -[0-9]*|[0-9]*)
+            run_test "Telegram chat ID format" "true"
+            ;;
+        *)
+            printf "Testing %-50s${YELLOW}⚠ WARN${NC} (should be numeric)\n" "Telegram chat ID format"
+            ;;
+    esac
+    
+    # Test Telegram API connectivity
+    TELEGRAM_API_URL="https://api.telegram.org/bot$TELEGRAM_TOKEN/getMe"
+    if command -v curl >/dev/null 2>&1; then
+        run_test "Telegram API connectivity (curl)" "curl -s --connect-timeout 5 '$TELEGRAM_API_URL' | grep -q '\"ok\":true'"
+    elif command -v fetch >/dev/null 2>&1; then
+        run_test "Telegram API connectivity (fetch)" "fetch -q -o /dev/null -T 5 '$TELEGRAM_API_URL'"
+    fi
+    
+    # Test Telegram notification function
+    echo "   Testing Telegram notification function..."
+    
+    test_telegram_notification() {
+        local message="$1"
+        local status="$2"
+        local emoji="🧪"
+        local status_text="Test"
+        
+        case "$status" in
+            "error") emoji="❌"; status_text="Error" ;;
+            "warning") emoji="⚠️"; status_text="Warning" ;;
+            "info") emoji="ℹ️"; status_text="Info" ;;
+            "start") emoji="🚀"; status_text="Start" ;;
+        esac
+        
+        local telegram_message="$emoji *Deployment $status_text*
+
+$message
+
+🖥️ *Server:* \`$(hostname)\`
+📁 *Test Suite:* Running
+⏰ *Time:* $(date '+%Y-%m-%d %H:%M:%S')"
+        
+        local telegram_url="https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage"
+        
+        if command -v curl >/dev/null 2>&1; then
+            local telegram_payload="{
+                \"chat_id\": \"$TELEGRAM_CHAT_ID\",
+                \"text\": \"$(echo "$telegram_message" | sed 's/"/\\"/g')\",
+                \"parse_mode\": \"Markdown\",
+                \"disable_web_page_preview\": true
+            }"
+            
+            curl -X POST -H 'Content-type: application/json' \
+                -d "$telegram_payload" \
+                "$telegram_url" \
+                --connect-timeout 10 \
+                --max-time 30 \
+                --silent --output /dev/null
+        elif command -v fetch >/dev/null 2>&1; then
+            local temp_file="$HOME/tmp/test_telegram_$$"
+            mkdir -p "$HOME/tmp" 2>/dev/null
+            
+            local telegram_payload="{
+                \"chat_id\": \"$TELEGRAM_CHAT_ID\",
+                \"text\": \"$(echo "$telegram_message" | sed 's/"/\\"/g')\",
+                \"parse_mode\": \"Markdown\",
+                \"disable_web_page_preview\": true
+            }"
+            
+            printf '%s\n' "$telegram_payload" > "$temp_file"
+            fetch -q -o /dev/null -T 30 \
+                --method=POST \
+                --header="Content-Type: application/json" \
+                --upload-file="$temp_file" \
+                "$telegram_url" 2>/dev/null
+            rm -f "$temp_file"
+        fi
+    }
+    
+    run_test "Send test Telegram notification" "test_telegram_notification 'Test suite is running successfully! All systems operational.' 'info'"
+    
+elif [ -n "$TELEGRAM_TOKEN" ] || [ -n "$TELEGRAM_CHAT_ID" ]; then
+    printf "Testing %-50s${YELLOW}⚠ WARN${NC} (incomplete config)\n" "Telegram bot"
+    if [ -z "$TELEGRAM_TOKEN" ]; then
+        echo "   ${YELLOW}⚠${NC} Missing TELEGRAMTOKEN in .env file"
+    fi
+    if [ -z "$TELEGRAM_CHAT_ID" ]; then
+        echo "   ${YELLOW}⚠${NC} Missing CHATID in .env file"
+    fi
+else
+    printf "Testing %-50s${YELLOW}⚠ SKIP${NC} (not configured)\n" "Telegram bot"
+    echo "   ${YELLOW}⚠${NC} Set TELEGRAMTOKEN and CHATID in .env file to test Telegram notifications"
+fi
             printf '%s\n' "$simple_payload" > "$temp_file"
             fetch -q -o /dev/null -T 30 \
                 --method=POST \
@@ -344,10 +476,24 @@ if [ $TESTS_FAILED -eq 0 ]; then
     echo "${GREEN}🎉 All tests passed! Your deployment environment is ready.${NC}"
     echo "${GREEN}✓ The Deploy.sh script should work perfectly on this system.${NC}"
     
+    # Check notification services
+    NOTIFICATION_CONFIGURED=false
     if [ -n "$WEBHOOK_URL" ]; then
         echo "${GREEN}✓ Discord notifications are configured and working.${NC}"
+        NOTIFICATION_CONFIGURED=true
     else
         echo "${YELLOW}⚠ Set up Discord webhook in .env for notifications.${NC}"
+    fi
+    
+    if [ -n "$TELEGRAM_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
+        echo "${GREEN}✓ Telegram notifications are configured and working.${NC}"
+        NOTIFICATION_CONFIGURED=true
+    else
+        echo "${YELLOW}⚠ Set up Telegram bot token and chat ID in .env for notifications.${NC}"
+    fi
+    
+    if [ "$NOTIFICATION_CONFIGURED" = "false" ]; then
+        echo "${YELLOW}💡 Configure at least one notification service (Discord or Telegram) for deployment alerts.${NC}"
     fi
 else
     echo "${RED}⚠ Some tests failed. Please review the failures above.${NC}"
@@ -357,7 +503,9 @@ fi
 echo
 echo "Next steps:"
 echo "1. ${BLUE}Create .env file:${NC} cp .env.example .env"
-echo "2. ${BLUE}Configure webhook:${NC} Add your Discord webhook URL to .env"
+echo "2. ${BLUE}Configure notifications:${NC}"
+echo "   • Discord: Add WEBHOOK URL to .env"
+echo "   • Telegram: Add TELEGRAMTOKEN and CHATID to .env"
 echo "3. ${BLUE}Test deployment:${NC} ./Deploy.sh"
 echo "4. ${BLUE}Monitor logs:${NC} tail -f ~/repo/git/pub/TTV/deploy.log"
 
