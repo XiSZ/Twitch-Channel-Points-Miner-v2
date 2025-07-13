@@ -97,14 +97,59 @@ send_webhook() {
     
     if [ "$SEND_WEBHOOK_NOTIFICATIONS" = "true" ] && [ -n "$WEBHOOK_URL" ]; then
         local color="#36a64f"  # Green for success
-        if [ "$status" = "error" ]; then
-            color="#ff0000"  # Red for error
-        fi
+        local title="✅ Deployment Success"
+        
+        case "$status" in
+            "error")
+                color="#ff0000"  # Red for error
+                title="❌ Deployment Error"
+                ;;
+            "warning")
+                color="#ffaa00"  # Orange for warning
+                title="⚠️ Deployment Warning"
+                ;;
+            "info")
+                color="#0099ff"  # Blue for info
+                title="ℹ️ Deployment Info"
+                ;;
+            "start")
+                color="#0099ff"  # Blue for start
+                title="🚀 Deployment Started"
+                ;;
+            *)
+                title="✅ Deployment Success"
+                ;;
+        esac
         
         # Use curl if available, otherwise use fetch
         if command -v curl >/dev/null 2>&1; then
-            # Simple JSON payload for better compatibility
-            local payload="{\"text\":\"Auto-Deploy: $message\",\"username\":\"$(hostname)\"}"
+            # Discord webhook payload with embeds for better formatting
+            local payload="{
+                \"username\": \"$(hostname) Deploy Bot\",
+                \"avatar_url\": \"https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png\",
+                \"embeds\": [{
+                    \"title\": \"$title\",
+                    \"description\": \"$message\",
+                    \"color\": \"$(printf '%d' 0x${color#\#})\",
+                    \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\",
+                    \"footer\": {
+                        \"text\": \"Twitch Channel Points Miner\",
+                        \"icon_url\": \"https://static-cdn.jtvnw.net/ttv-boxart/509658-285x380.jpg\"
+                    },
+                    \"fields\": [
+                        {
+                            \"name\": \"Server\",
+                            \"value\": \"$(hostname)\",
+                            \"inline\": true
+                        },
+                        {
+                            \"name\": \"Repository\",
+                            \"value\": \"$REPO_PATH\",
+                            \"inline\": true
+                        }
+                    ]
+                }]
+            }"
             
             curl -X POST -H 'Content-type: application/json' \
                 -d "$payload" \
@@ -113,10 +158,16 @@ send_webhook() {
                 --max-time 30 \
                 --silent --output /dev/null
         elif command -v fetch >/dev/null 2>&1; then
-            # FreeBSD's native fetch command
+            # FreeBSD's native fetch command with simpler payload
             local temp_file="$HOME/tmp/webhook_payload_$$"
             mkdir -p "$HOME/tmp" 2>/dev/null
-            printf '{"text":"Auto-Deploy: %s","username":"%s"}\n' "$message" "$(hostname)" > "$temp_file"
+            
+            local simple_payload="{
+                \"username\": \"$(hostname) Deploy Bot\",
+                \"content\": \"$title\\n**$message**\\n\\nServer: \`$(hostname)\`\\nRepo: \`$REPO_PATH\`\"
+            }"
+            
+            printf '%s\n' "$simple_payload" > "$temp_file"
             fetch -q -o /dev/null -T 30 \
                 --method=POST \
                 --header="Content-Type: application/json" \
@@ -126,9 +177,9 @@ send_webhook() {
         fi
         
         if [ $? -eq 0 ]; then
-            log_message "Webhook notification sent"
+            log_message "Discord notification sent: $title"
         else
-            log_message "Failed to send webhook notification"
+            log_message "Failed to send Discord notification"
         fi
     fi
 }
@@ -149,6 +200,9 @@ fi
 # Create lock file with PID
 echo $$ > "$LOCK_FILE"
 log_message "Starting smart deployment (PID: $$)"
+
+# Send start notification
+send_webhook "Deployment process started on $(hostname)" "start"
 
 # Kill any running Python processes before deployment
 log_message "Stopping any running Python processes..."
@@ -235,12 +289,17 @@ fi
 if [ "$LOCAL_COMMIT" = "$REMOTE_COMMIT" ]; then
     log_message "No updates available. Current commit: $LOCAL_COMMIT"
     log_message "Smart deployment finished - no changes"
+    send_webhook "No updates found. Repository is up to date.\nCommit: \`$LOCAL_COMMIT\`" "info"
     exit 0
 fi
 
 log_message "Updates found. Proceeding with deployment..."
 log_message "Local commit:  $LOCAL_COMMIT"
 log_message "Remote commit: $REMOTE_COMMIT"
+
+# Send update notification
+COMMIT_MESSAGE_SHORT=$(git log --oneline -1 "origin/$BRANCH" 2>/dev/null)
+send_webhook "Updates found! Starting deployment...\n**From:** \`${LOCAL_COMMIT:0:8}\`\n**To:** \`${REMOTE_COMMIT:0:8}\`\n**Latest commit:** $COMMIT_MESSAGE_SHORT" "info"
 
 # Get commit message for notification
 COMMIT_MESSAGE=$(git log --oneline -1 "origin/$BRANCH" 2>/dev/null | cut -d' ' -f2-)
@@ -292,6 +351,9 @@ if [ $PULL_EXIT_CODE -eq 0 ]; then
         
         if [ $PIP_EXIT_CODE -ne 0 ]; then
             log_message "WARNING: Failed to install Python dependencies"
+            send_webhook "⚠️ Failed to install Python dependencies, but deployment continues" "warning"
+        else
+            log_message "Python dependencies installed successfully"
         fi
     fi
     
@@ -320,11 +382,16 @@ if [ $PULL_EXIT_CODE -eq 0 ]; then
             NEW_PID=$!
             log_message "Started localRunner.py with $PYTHON_TO_USE (PID: $NEW_PID)"
             log_message "Output will be logged to: $HOME/localRunner.log"
+            
+            # Enhanced success message with process info
+            SUCCESS_MSG="$SUCCESS_MSG\n\n🐍 **Process Started:**\n• Script: \`localRunner.py\`\n• Python: \`$PYTHON_TO_USE\`\n• PID: \`$NEW_PID\`\n• Log: \`$HOME/localRunner.log\`"
         else
             log_message "WARNING: No Python interpreter found to start localRunner.py"
+            send_webhook "⚠️ localRunner.py could not be started - no Python interpreter found" "warning"
         fi
     else
         log_message "WARNING: localRunner.py not found, skipping process startup"
+        send_webhook "⚠️ localRunner.py not found - skipping process startup" "warning"
     fi
     
     # Send success notifications
