@@ -534,11 +534,16 @@ send_notification "Updates found! Starting deployment...\n**From:** \`$LOCAL_COM
 # Get commit message for notification
 COMMIT_MESSAGE=$(git log --oneline -1 "origin/$BRANCH" 2>/dev/null | cut -d' ' -f2-)
 
-# Stash any local changes (optional)
-if [ -n "$(git status --porcelain)" ]; then
-    log_message "Local changes detected, stashing..."
-    STASH_OUTPUT=$(git stash 2>&1)
-    log_message "Stash output: $STASH_OUTPUT"
+# Reset to clean state before pulling (removes any local changes)
+log_message "Resetting repository to clean state..."
+RESET_OUTPUT=$(git reset --hard HEAD 2>&1)
+RESET_EXIT_CODE=$?
+
+if [ $RESET_EXIT_CODE -eq 0 ]; then
+    log_message "Repository reset completed successfully"
+else
+    log_message "WARNING: Git reset failed. Output: $RESET_OUTPUT"
+    send_notification "⚠️ **Git Reset Warning**\n\nFailed to reset repository to clean state\nOutput: \`$RESET_OUTPUT\`\nContinuing with deployment..." "warning"
 fi
 
 # Pull changes

@@ -1,6 +1,7 @@
 #!/bin/sh
 
 # Comprehensive test script for FreeBSD/Serv00 deployment setup and notifications
+# Uses POSIX shell features for maximum compatibility
 
 echo "=== FreeBSD/Serv00 Deployment & Notification Test Suite ==="
 echo
@@ -297,7 +298,12 @@ fi
 # Discord Webhook Tests
 echo
 echo "${BLUE}7a. Discord Webhook Tests:${NC}"
-WEBHOOK_URL="${WEBHOOK:-}"
+# POSIX-compatible parameter expansion
+if [ -n "$WEBHOOK" ]; then
+    WEBHOOK_URL="$WEBHOOK"
+else
+    WEBHOOK_URL=""
+fi
 
 if [ -n "$WEBHOOK_URL" ]; then
     echo "   ${GREEN}✓${NC} Discord webhook URL configured"
@@ -399,8 +405,18 @@ fi
 # Telegram Bot Tests
 echo
 echo "${BLUE}7b. Telegram Bot Tests:${NC}"
-TELEGRAM_TOKEN="${TELEGRAMTOKEN:-}"
-TELEGRAM_CHAT_ID="${CHATID:-}"
+# POSIX-compatible parameter expansion
+if [ -n "$TELEGRAMTOKEN" ]; then
+    TELEGRAM_TOKEN="$TELEGRAMTOKEN"
+else
+    TELEGRAM_TOKEN=""
+fi
+
+if [ -n "$CHATID" ]; then
+    TELEGRAM_CHAT_ID="$CHATID"
+else
+    TELEGRAM_CHAT_ID=""
+fi
 
 if [ -n "$TELEGRAM_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
     echo "   ${GREEN}✓${NC} Telegram bot token and chat ID configured"
@@ -512,9 +528,24 @@ fi
 # Email Tests
 echo
 echo "${BLUE}7c. Email Notification Tests:${NC}"
-EMAIL_RECIPIENT="${EMAIL_RECIPIENT:-}"
-SEND_EMAIL_ON_ERROR="${SEND_EMAIL_ON_ERROR:-true}"
-SEND_EMAIL_ON_SUCCESS="${SEND_EMAIL_ON_SUCCESS:-false}"
+# POSIX-compatible parameter expansion
+if [ -n "$EMAIL_RECIPIENT" ]; then
+    EMAIL_RECIPIENT="$EMAIL_RECIPIENT"
+else
+    EMAIL_RECIPIENT=""
+fi
+
+if [ -n "$SEND_EMAIL_ON_ERROR" ]; then
+    SEND_EMAIL_ON_ERROR="$SEND_EMAIL_ON_ERROR"
+else
+    SEND_EMAIL_ON_ERROR="true"
+fi
+
+if [ -n "$SEND_EMAIL_ON_SUCCESS" ]; then
+    SEND_EMAIL_ON_SUCCESS="$SEND_EMAIL_ON_SUCCESS"
+else
+    SEND_EMAIL_ON_SUCCESS="false"
+fi
 
 if [ -n "$EMAIL_RECIPIENT" ]; then
     echo "   ${GREEN}✓${NC} Email recipient configured: $EMAIL_RECIPIENT"
