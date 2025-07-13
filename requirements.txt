@@ -2,6 +2,7 @@ requests
 websocket-client
 pillow
 python-dateutil
+python-dotenv
 emoji
 millify
 pre-commit

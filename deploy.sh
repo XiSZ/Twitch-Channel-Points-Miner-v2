@@ -452,8 +452,8 @@ fi
 # Set PATH for FreeBSD/Serv00 - include common locations
 export PATH="$HOME/.local/bin:$HOME/usr/local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
-# Set Python path for user-installed packages
-export PYTHONPATH="$HOME/.local/lib/python3.9/site-packages:$HOME/.local/lib/python3.8/site-packages:$PYTHONPATH"
+# Set Python path for user-installed packages on FreeBSD/Serv00
+export PYTHONPATH="$HOME/.local/lib/python3.11/site-packages:$HOME/.local/lib/python3.10/site-packages:$HOME/.local/lib/python3.9/site-packages:$HOME/.local/lib/python3.8/site-packages:$PYTHONPATH"
 
 # Validate repository path
 if [ ! -d "$REPO_PATH" ]; then
@@ -565,8 +565,12 @@ if [ $PULL_EXIT_CODE -eq 0 ]; then
         
         # Check if virtual environment exists and use it
         if [ -f ".venv/bin/python" ]; then
-            log_message "Using virtual environment"
+            log_message "Using virtual environment (.venv/bin/python)"
             .venv/bin/python -m pip install --upgrade -r requirements.txt >> "$LOG_FILE" 2>&1
+            PIP_EXIT_CODE=$?
+        elif [ -f ".venv/Scripts/python.exe" ]; then
+            log_message "Using virtual environment (.venv/Scripts/python.exe)"
+            .venv/Scripts/python.exe -m pip install --upgrade -r requirements.txt >> "$LOG_FILE" 2>&1
             PIP_EXIT_CODE=$?
         else
             # Try different Python versions available on Serv00
@@ -598,8 +602,13 @@ if [ $PULL_EXIT_CODE -eq 0 ]; then
         log_message "Set executable permissions for run.py"
     fi
     
-    # Start the new Python process after successful deployment
-    if [ -f "localRunner.py" ]; then
+    # Start the new Python process after successful deployment (Serv00 optimized)
+    start_localrunner() {
+        if [ ! -f "localRunner.py" ]; then
+            log_message "WARNING: localRunner.py not found, skipping process startup"
+            send_notification "⚠️ localRunner.py not found - skipping process startup" "warning"
+            return 1
+        fi
         log_message "Starting new Python process with localRunner.py"
         
         # Serv00-specific: Ensure we're in the correct directory
@@ -650,17 +659,19 @@ if [ $PULL_EXIT_CODE -eq 0 ]; then
             fi
         done
         
-        if [ -n "$PYTHON_TO_USE" ]; then
-            # Serv00-specific: Set up environment variables
-            export PYTHONUNBUFFERED=1
-            export PYTHONPATH="$CURRENT_DIR:$PYTHONPATH"
-            
-            # Create logs directory if it doesn't exist
-            mkdir -p "$HOME/logs" 2>/dev/null
-            
-            # Use absolute paths for better reliability on Serv00
-            LOG_PATH="$HOME/logs/localRunner.log"
-            SCRIPT_PATH="$CURRENT_DIR/localRunner.py"
+        if [ -n "$PYTHON_TO_USE" ]; then        # Serv00-specific: Set up environment variables for better compatibility
+        export PYTHONUNBUFFERED=1
+        export PYTHONPATH="$CURRENT_DIR:$PYTHONPATH"
+        
+        # Serv00-specific: Make sure we're using the user's Python path
+        export PATH="$HOME/.local/bin:$PATH"
+        
+        # Create logs directory if it doesn't exist
+        mkdir -p "$HOME/logs" 2>/dev/null
+        
+        # Use absolute paths for better reliability on Serv00
+        LOG_PATH="$HOME/logs/localRunner.log"
+        SCRIPT_PATH="$CURRENT_DIR/localRunner.py"
             
             log_message "Starting localRunner.py with $PYTHON_TO_USE..."
             log_message "Script path: $SCRIPT_PATH"
@@ -670,6 +681,152 @@ if [ $PULL_EXIT_CODE -eq 0 ]; then
             # Send Discord notification about process startup attempt
             send_notification "🚀 **Starting New Process**\n\n• Script: \`localRunner.py\`\n• Python: \`$PYTHON_TO_USE\`\n• Working Dir: \`$CURRENT_DIR\`\n• Log: \`$LOG_PATH\`\n• Action: Starting in background with nohup" "info"
             
+            # Test the environment before starting
+            log_message "Testing environment and dependencies before startup..."
+            
+            # Test if .env file exists and is readable
+            if [ -f "$CURRENT_DIR/.env" ]; then
+                log_message "✓ .env file found and readable"
+            else
+                log_message "❌ .env file missing or not readable"
+                send_notification "❌ **Startup Failed - Missing .env file**\n\n• Location: \`$CURRENT_DIR/.env\`\n• This file is required for localRunner.py" "error"
+                log_message "Skipping localRunner.py startup due to missing .env file"
+                continue
+            fi
+            
+            # Test required Python packages
+            log_message "Testing required Python packages..."
+            MISSING_PACKAGES=""
+            
+            for PACKAGE in "dotenv" "requests" "websocket" "pathlib"; do
+                if "$PYTHON_TO_USE" -c "import $PACKAGE" 2>/dev/null; then
+                    log_message "✓ Package $PACKAGE: OK"
+                else
+                    log_message "❌ Package $PACKAGE: MISSING"
+                    MISSING_PACKAGES="$MISSING_PACKAGES $PACKAGE"
+                fi
+            done
+            
+            if [ -n "$MISSING_PACKAGES" ]; then
+                log_message "Missing packages detected:$MISSING_PACKAGES"
+                log_message "Attempting to install missing packages..."
+                
+                # Try to install missing packages
+                for PACKAGE in $MISSING_PACKAGES; do
+                    PACKAGE_TO_INSTALL="$PACKAGE"
+                    # Map package names to pip package names
+                    case "$PACKAGE" in
+                        "dotenv") PACKAGE_TO_INSTALL="python-dotenv" ;;
+                        "websocket") PACKAGE_TO_INSTALL="websocket-client" ;;
+                    esac
+                    
+                    log_message "Installing $PACKAGE_TO_INSTALL..."
+                    if "$PYTHON_TO_USE" -m pip install --user "$PACKAGE_TO_INSTALL" >> "$LOG_FILE" 2>&1; then
+                        log_message "✓ Successfully installed $PACKAGE_TO_INSTALL"
+                    else
+                        log_message "❌ Failed to install $PACKAGE_TO_INSTALL"
+                        send_notification "❌ **Startup Failed - Package Installation**\n\n• Failed to install: \`$PACKAGE_TO_INSTALL\`\n• This package is required for localRunner.py" "error"
+                        log_message "Skipping localRunner.py startup due to failed package installation"
+                        continue 2  # Continue outer loop (skip this Python startup attempt)
+                    fi
+                done
+                
+                # Re-test packages after installation
+                log_message "Re-testing packages after installation..."
+                for PACKAGE in $MISSING_PACKAGES; do
+                    if "$PYTHON_TO_USE" -c "import $PACKAGE" 2>/dev/null; then
+                        log_message "✓ Package $PACKAGE: NOW OK"
+                    else
+                        log_message "❌ Package $PACKAGE: STILL MISSING"
+                        send_notification "❌ **Startup Failed - Package Still Missing**\n\n• Package: \`$PACKAGE\`\n• Installation failed or incomplete" "error"
+                        log_message "Skipping localRunner.py startup due to missing packages"
+                        continue 2  # Continue outer loop (skip this Python startup attempt)
+                    fi
+                done
+            fi
+            
+            # Test localRunner.py syntax
+            log_message "Testing localRunner.py syntax..."
+            SYNTAX_CHECK=$("$PYTHON_TO_USE" -m py_compile "$SCRIPT_PATH" 2>&1)
+            if [ $? -eq 0 ]; then
+                log_message "✓ localRunner.py syntax check: PASSED"
+            else
+                log_message "❌ localRunner.py syntax check: FAILED"
+                log_message "Syntax error: $SYNTAX_CHECK"
+                send_notification "❌ **Startup Failed - Syntax Error**\n\n• Script: \`localRunner.py\`\n• Error: \`$SYNTAX_CHECK\`" "error"
+                log_message "Skipping localRunner.py startup due to syntax error"
+                continue
+            fi
+            
+            # Test environment variables in .env file
+            log_message "Testing environment variables from .env file..."
+            ENV_TEST=$("$PYTHON_TO_USE" -c "
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
+required_vars = ['USER', 'PASSWORD', 'WEBHOOK', 'CHATID', 'TELEGRAMTOKEN', 'GITHUB_TOKEN', 'CJ_OWNER', 'CJ_REPO', 'CJ_FILE']
+missing_vars = []
+
+for var in required_vars:
+    if not os.getenv(var):
+        missing_vars.append(var)
+
+if missing_vars:
+    print(f'MISSING: {missing_vars}')
+    exit(1)
+else:
+    print('ALL_OK')
+" 2>&1)
+            
+            if echo "$ENV_TEST" | grep -q "ALL_OK"; then
+                log_message "✓ Environment variables test: PASSED"
+            else
+                log_message "❌ Environment variables test: FAILED"
+                log_message "Missing variables: $ENV_TEST"
+                send_notification "❌ **Startup Failed - Missing Environment Variables**\n\n• Missing: \`$ENV_TEST\`\n• Check your .env file" "error"
+                log_message "Skipping localRunner.py startup due to missing environment variables"
+                continue
+            fi
+            
+            # Test cookies file
+            log_message "Testing cookies file availability..."
+            COOKIES_TEST=$("$PYTHON_TO_USE" -c "
+import os
+from dotenv import load_dotenv
+from pathlib import Path
+load_dotenv()
+
+cookies_path = Path.cwd() / 'cookies'
+if not cookies_path.exists():
+    print('MISSING_COOKIES_DIR')
+    exit(1)
+
+cookies_file = os.getenv('CJ_FILE')
+if not cookies_file:
+    print('MISSING_CJ_FILE_VAR')
+    exit(1)
+
+final_path = cookies_path / cookies_file
+if not final_path.exists():
+    print(f'MISSING_COOKIES_FILE: {final_path}')
+    exit(1)
+
+print('COOKIES_OK')
+" 2>&1)
+            
+            if echo "$COOKIES_TEST" | grep -q "COOKIES_OK"; then
+                log_message "✓ Cookies file test: PASSED"
+            else
+                log_message "❌ Cookies file test: FAILED"
+                log_message "Cookies issue: $COOKIES_TEST"
+                send_notification "❌ **Startup Failed - Cookies File Issue**\n\n• Issue: \`$COOKIES_TEST\`\n• Check cookies directory and CJ_FILE setting" "error"
+                log_message "Skipping localRunner.py startup due to cookies file issue"
+                continue
+            fi
+            
+            log_message "✅ All pre-startup tests passed successfully!"
+            
             # Start with explicit paths and better error handling
             cd "$CURRENT_DIR" && nohup "$PYTHON_TO_USE" "$SCRIPT_PATH" > "$LOG_PATH" 2>&1 &
             NEW_PID=$!
@@ -677,7 +834,7 @@ if [ $PULL_EXIT_CODE -eq 0 ]; then
             log_message "Process started with PID: $NEW_PID"
             
             # Enhanced verification with multiple checks
-            sleep 3  # Give more time for process to start
+            sleep 5  # Give more time for process to start and initialize
             
             # Check if process is still running
             if kill -0 "$NEW_PID" 2>/dev/null; then
@@ -697,9 +854,16 @@ if [ $PULL_EXIT_CODE -eq 0 ]; then
                         PROCESS_DETAILS="\n• Full command: \`$PROCESS_INFO\`"
                     fi
                     
-                    # Also show the working directory if possible
+                    # Also show the working directory if possible (Linux-specific, skip on FreeBSD)
                     if [ -d "/proc/$NEW_PID" ] && [ -r "/proc/$NEW_PID/cwd" ]; then
                         PROCESS_CWD=$(readlink "/proc/$NEW_PID/cwd" 2>/dev/null)
+                        if [ -n "$PROCESS_CWD" ]; then
+                            log_message "  Working directory: $PROCESS_CWD"
+                            PROCESS_DETAILS="$PROCESS_DETAILS\n• Working dir: \`$PROCESS_CWD\`"
+                        fi
+                    elif command -v lsof >/dev/null 2>&1; then
+                        # FreeBSD alternative using lsof
+                        PROCESS_CWD=$(lsof -p "$NEW_PID" -d cwd 2>/dev/null | tail -1 | awk '{print $NF}')
                         if [ -n "$PROCESS_CWD" ]; then
                             log_message "  Working directory: $PROCESS_CWD"
                             PROCESS_DETAILS="$PROCESS_DETAILS\n• Working dir: \`$PROCESS_CWD\`"
@@ -778,73 +942,137 @@ if [ $PULL_EXIT_CODE -eq 0 ]; then
                 # Try alternative startup methods for Serv00
                 log_message "Attempting alternative startup methods..."
                 
-                # Method 1: Try without nohup
-                log_message "Trying without nohup..."
-                "$PYTHON_TO_USE" "$SCRIPT_PATH" > "$LOG_PATH" 2>&1 &
+                # Method 1: Try without nohup but with explicit output redirection
+                log_message "Method 1: Trying without nohup but with output redirection..."
+                cd "$CURRENT_DIR" && "$PYTHON_TO_USE" "$SCRIPT_PATH" > "$LOG_PATH" 2>&1 &
                 ALT_PID=$!
-                sleep 2
+                sleep 3
                 if kill -0 "$ALT_PID" 2>/dev/null; then
                     log_message "✓ Alternative method 1 successful (PID: $ALT_PID)"
-                    send_notification "✅ **Process Started with Alternative Method**\n\n• PID: \`$ALT_PID\`\n• Method: Without nohup\n• Script: \`localRunner.py\`" "success"
+                    send_notification "✅ **Process Started with Alternative Method 1**\n\n• PID: \`$ALT_PID\`\n• Method: Direct background execution\n• Script: \`localRunner.py\`" "success"
+                    SUCCESS_MSG="$SUCCESS_MSG\n\n🐍 **Process Started (Method 1):**\n• PID: \`$ALT_PID\`\n• Script: \`localRunner.py\`\n• Python: \`$PYTHON_TO_USE\`\n• Log: \`$LOG_PATH\`\n• Status: Running"
                 else
                     log_message "✗ Alternative method 1 failed"
                     
-                    # Method 2: Try with explicit shell
-                    log_message "Trying with explicit shell..."
-                    /bin/sh -c "cd '$CURRENT_DIR' && '$PYTHON_TO_USE' '$SCRIPT_PATH' > '$LOG_PATH' 2>&1 &"
-                    sleep 2
-                    
-                    # Find the new process by checking for localRunner.py
-                    if command -v pgrep >/dev/null 2>&1; then
-                        SHELL_PID=$(pgrep -f "localRunner.py" 2>/dev/null | tail -1)
-                    else
-                        SHELL_PID=$(ps aux | grep "localRunner.py" | grep -v grep | awk '{print $2}' | tail -1)
+                    # Show what happened in the log
+                    if [ -f "$LOG_PATH" ]; then
+                        log_message "Method 1 error log:"
+                        tail -10 "$LOG_PATH" 2>/dev/null | while read -r line; do
+                            log_message "  $line"
+                        done
                     fi
                     
-                    if [ -n "$SHELL_PID" ] && kill -0 "$SHELL_PID" 2>/dev/null; then
-                        log_message "✓ Alternative method 2 successful (PID: $SHELL_PID)"
-                        send_notification "✅ **Process Started with Shell Method**\n\n• PID: \`$SHELL_PID\`\n• Method: Explicit shell\n• Script: \`localRunner.py\`" "success"
-                    else
-                        log_message "✗ Alternative method 2 failed"
+                    # Method 2: Try with screen if available
+                    if command -v screen >/dev/null 2>&1; then
+                        log_message "Method 2: Trying with screen session..."
+                        screen -dmS "miner_session" "$PYTHON_TO_USE" "$SCRIPT_PATH"
+                        sleep 3
                         
-                        # Method 3: Check if we need to install dependencies first
-                        log_message "Checking if dependencies are missing..."
-                        DEP_CHECK=$("$PYTHON_TO_USE" -c "
-import sys
-try:
-    import requests
-    print('requests: OK')
-except ImportError:
-    print('requests: MISSING')
-    sys.exit(1)
-try:
-    import websocket
-    print('websocket: OK')
-except ImportError:
-    print('websocket: MISSING')
-    sys.exit(1)
-print('Dependencies check: PASSED')
-" 2>&1)
-                        
-                        log_message "Dependency check result: $DEP_CHECK"
-                        
-                        if echo "$DEP_CHECK" | grep -q "MISSING"; then
-                            log_message "Missing dependencies detected, deployment may need dependency installation"
-                            send_notification "⚠️ **Process Startup Failed - Missing Dependencies**\n\n• Issue: Python dependencies missing\n• Check: \`$DEP_CHECK\`\n• Action: May need to install requirements.txt" "warning"
+                        # Check if screen session exists
+                        if screen -list | grep -q "miner_session"; then
+                            # Find the PID of the Python process
+                            if command -v pgrep >/dev/null 2>&1; then
+                                SCREEN_PID=$(pgrep -f "localRunner.py" 2>/dev/null | tail -1)
+                            else
+                                SCREEN_PID=$(ps aux | grep "localRunner.py" | grep -v grep | awk '{print $2}' | tail -1)
+                            fi
+                            
+                            if [ -n "$SCREEN_PID" ] && kill -0 "$SCREEN_PID" 2>/dev/null; then
+                                log_message "✓ Alternative method 2 successful with screen (PID: $SCREEN_PID)"
+                                send_notification "✅ **Process Started with Screen**\n\n• PID: \`$SCREEN_PID\`\n• Method: Screen session\n• Session: \`miner_session\`\n• Script: \`localRunner.py\`" "success"
+                                SUCCESS_MSG="$SUCCESS_MSG\n\n🐍 **Process Started (Screen):**\n• PID: \`$SCREEN_PID\`\n• Session: \`miner_session\`\n• Script: \`localRunner.py\`\n• Status: Running"
+                            else
+                                log_message "✗ Alternative method 2 failed - screen session created but process not running"
+                                screen -S "miner_session" -X quit 2>/dev/null  # Clean up
+                            fi
                         else
-                            log_message "All alternative startup methods failed"
-                            send_notification "❌ **All Startup Methods Failed**\n\n• Script: \`localRunner.py\`\n• Tried: nohup, direct, shell methods\n• Check log: \`$LOG_PATH\`" "error"
+                            log_message "✗ Alternative method 2 failed - could not create screen session"
                         fi
+                    else
+                        log_message "Screen not available, skipping method 2"
                     fi
-                fi
+                    
+                    # Method 3: Try simple synchronous test to see what's wrong
+                    log_message "Method 3: Running synchronous test to diagnose issues..."
+                    cd "$CURRENT_DIR"
+                    
+                    # Create a test log for synchronous run
+                    TEST_LOG="$HOME/logs/localRunner_test.log"
+                    log_message "Running synchronous test, output will be in: $TEST_LOG"
+                    
+                    # Run synchronously with timeout to see what happens (FreeBSD compatible)
+                    if command -v timeout >/dev/null 2>&1; then
+                        # GNU timeout
+                        SYNC_OUTPUT=$(timeout 30 "$PYTHON_TO_USE" "$SCRIPT_PATH" 2>&1)
+                        SYNC_EXIT_CODE=$?
+                    elif command -v gtimeout >/dev/null 2>&1; then
+                        # GNU timeout on FreeBSD (if installed)
+                        SYNC_OUTPUT=$(gtimeout 30 "$PYTHON_TO_USE" "$SCRIPT_PATH" 2>&1)
+                        SYNC_EXIT_CODE=$?
+                    else
+                        # Fallback for FreeBSD/Serv00 without timeout command
+                        SYNC_OUTPUT=$("$PYTHON_TO_USE" "$SCRIPT_PATH" 2>&1 &
+                        SYNC_PID=$!
+                        sleep 10
+                        if kill -0 "$SYNC_PID" 2>/dev/null; then
+                            kill "$SYNC_PID" 2>/dev/null
+                            wait "$SYNC_PID" 2>/dev/null
+                            echo "Process was running but killed after 10 seconds for testing"
+                        else
+                            wait "$SYNC_PID" 2>/dev/null
+                        fi)
+                        SYNC_EXIT_CODE=$?
+                    fi
+                    
+                    echo "$SYNC_OUTPUT" > "$TEST_LOG"
+                    log_message "Synchronous test completed with exit code: $SYNC_EXIT_CODE"
+                    log_message "Test output (first 20 lines):"
+                    echo "$SYNC_OUTPUT" | head -20 | while read -r line; do
+                        log_message "  $line"
+                    done
+                    
+                    # Analyze the output
+                    if echo "$SYNC_OUTPUT" | grep -q "Everything is OK, starting run.py"; then
+                        log_message "✓ localRunner.py initialization successful, issue might be with run.py"
+                        send_notification "⚠️ **Partial Success - localRunner.py starts but issue with run.py**\n\n• localRunner.py: ✅ Initialized successfully\n• run.py: ❌ May have issues\n• Check: \`$TEST_LOG\`" "warning"
+                    elif echo "$SYNC_OUTPUT" | grep -q "ModuleNotFoundError\|ImportError"; then
+                        MISSING_MODULE=$(echo "$SYNC_OUTPUT" | grep -o "No module named '[^']*'" | head -1)
+                        log_message "❌ Missing Python module detected: $MISSING_MODULE"
+                        send_notification "❌ **Startup Failed - Missing Python Module**\n\n• Error: \`$MISSING_MODULE\`\n• Action: Install missing dependencies\n• Check: \`$TEST_LOG\`" "error"
+                    elif echo "$SYNC_OUTPUT" | grep -q "environment variable is not defined"; then
+                        MISSING_ENV=$(echo "$SYNC_OUTPUT" | grep -o "[A-Z_]* environment variable is not defined" | head -1)
+                        log_message "❌ Missing environment variable: $MISSING_ENV"
+                        send_notification "❌ **Startup Failed - Missing Environment Variable**\n\n• Error: \`$MISSING_ENV\`\n• Action: Check .env file\n• Check: \`$TEST_LOG\`" "error"
+                    elif echo "$SYNC_OUTPUT" | grep -q "FileNotFoundError"; then
+                        MISSING_FILE=$(echo "$SYNC_OUTPUT" | grep -o "FileNotFoundError: [^\\n]*" | head -1)
+                        log_message "❌ Missing file detected: $MISSING_FILE"
+                        send_notification "❌ **Startup Failed - Missing File**\n\n• Error: \`$MISSING_FILE\`\n• Action: Check file paths\n• Check: \`$TEST_LOG\`" "error"
+                    else
+                        log_message "❌ Unknown error in localRunner.py"
+                        ERROR_SUMMARY=$(echo "$SYNC_OUTPUT" | tail -5 | tr '\n' ' ')
+                        send_notification "❌ **Startup Failed - Unknown Error**\n\n• Last output: \`$ERROR_SUMMARY\`\n• Full log: \`$TEST_LOG\`" "error"
+                    fi
             fi
         else
             log_message "WARNING: No Python interpreter found to start localRunner.py"
             send_notification "⚠️ **Process Startup Skipped**\n\n• Script: \`localRunner.py\`\n• Issue: No Python interpreter found\n• Available versions checked: python3.11, python3.10, python3.9, python3.8, python3, python" "warning"
         fi
-    else
-        log_message "WARNING: localRunner.py not found, skipping process startup"
-        send_notification "⚠️ localRunner.py not found - skipping process startup" "warning"
+    }
+    
+    # Call the function to start localRunner.py
+    start_localrunner
+    
+    # If the main startup method fails, try the simple startup script as fallback
+    if [ ! $? -eq 0 ] && [ -f "start_simple.sh" ]; then
+        log_message "Main startup method failed, trying simple startup script as fallback..."
+        chmod +x start_simple.sh 2>/dev/null
+        if ./start_simple.sh >> "$LOG_FILE" 2>&1; then
+            log_message "✓ Simple startup script succeeded"
+            send_notification "✅ **Process Started with Fallback Method**\n\n• Method: Simple startup script\n• Script: \`start_simple.sh\`\n• Check logs for details" "success"
+        else
+            log_message "✗ Simple startup script also failed"
+            send_notification "❌ **All Startup Methods Failed**\n\n• Main method: Failed\n• Fallback method: Failed\n• Check logs for details" "error"
+        fi
     fi
     
     # Send success notifications
