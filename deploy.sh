@@ -587,32 +587,90 @@ if [ $PULL_EXIT_CODE -eq 0 ]; then
     if [ -f "localRunner.py" ]; then
         log_message "Starting new Python process with localRunner.py"
         
-        # Find the best Python version to use
+        # Serv00-specific: Ensure we're in the correct directory
+        CURRENT_DIR=$(pwd)
+        log_message "Current working directory: $CURRENT_DIR"
+        
+        # Serv00-specific: Check for common issues
+        log_message "Performing Serv00-specific checks..."
+        
+        # Check if we have enough disk space
+        if command -v df >/dev/null 2>&1; then
+            DISK_USAGE=$(df -h "$HOME" 2>/dev/null | tail -1 | awk '{print $5}' | sed 's/%//')
+            if [ -n "$DISK_USAGE" ] && [ "$DISK_USAGE" -gt 95 ]; then
+                log_message "WARNING: Disk usage is ${DISK_USAGE}% - this may cause issues"
+                send_notification "⚠️ **High Disk Usage Warning**\n\nDisk usage: ${DISK_USAGE}%\nThis may prevent process startup" "warning"
+            else
+                log_message "Disk usage check: OK (${DISK_USAGE}%)"
+            fi
+        fi
+        
+        # Check memory usage
+        if command -v free >/dev/null 2>&1; then
+            MEMORY_INFO=$(free -h 2>/dev/null | grep "Mem:" | awk '{print "Used: " $3 "/" $2}')
+            log_message "Memory usage: $MEMORY_INFO"
+        elif command -v top >/dev/null 2>&1; then
+            # FreeBSD/Serv00 alternative
+            MEMORY_INFO=$(top -n 1 2>/dev/null | grep "Mem:" | head -1)
+            log_message "Memory info: $MEMORY_INFO"
+        fi
+        
+        # Check if localRunner.py has correct permissions
+        if [ -r "localRunner.py" ]; then
+            log_message "localRunner.py permissions: OK (readable)"
+        else
+            log_message "ERROR: localRunner.py is not readable"
+            send_notification "❌ **Permission Error**\n\nlocalRunner.py is not readable\nCheck file permissions" "error"
+            return 1
+        fi
+        
+        # Find the best Python version to use (Serv00 specific order)
         PYTHON_TO_USE=""
         for PYTHON_CMD in python3.11 python3.10 python3.9 python3.8 python3 python; do
             if command -v "$PYTHON_CMD" >/dev/null 2>&1; then
+                PYTHON_VERSION=$("$PYTHON_CMD" --version 2>&1)
+                log_message "Found Python: $PYTHON_CMD ($PYTHON_VERSION)"
                 PYTHON_TO_USE="$PYTHON_CMD"
                 break
             fi
         done
         
         if [ -n "$PYTHON_TO_USE" ]; then
-            # Start the process in the background with nohup
+            # Serv00-specific: Set up environment variables
+            export PYTHONUNBUFFERED=1
+            export PYTHONPATH="$CURRENT_DIR:$PYTHONPATH"
+            
+            # Create logs directory if it doesn't exist
+            mkdir -p "$HOME/logs" 2>/dev/null
+            
+            # Use absolute paths for better reliability on Serv00
+            LOG_PATH="$HOME/logs/localRunner.log"
+            SCRIPT_PATH="$CURRENT_DIR/localRunner.py"
+            
             log_message "Starting localRunner.py with $PYTHON_TO_USE..."
+            log_message "Script path: $SCRIPT_PATH"
+            log_message "Log path: $LOG_PATH"
+            log_message "Python path: $PYTHONPATH"
             
             # Send Discord notification about process startup attempt
-            send_notification "🚀 **Starting New Process**\n\n• Script: \`localRunner.py\`\n• Python: \`$PYTHON_TO_USE\`\n• Action: Starting in background with nohup" "info"
+            send_notification "🚀 **Starting New Process**\n\n• Script: \`localRunner.py\`\n• Python: \`$PYTHON_TO_USE\`\n• Working Dir: \`$CURRENT_DIR\`\n• Log: \`$LOG_PATH\`\n• Action: Starting in background with nohup" "info"
             
-            nohup "$PYTHON_TO_USE" localRunner.py > "$HOME/localRunner.log" 2>&1 &
+            # Start with explicit paths and better error handling
+            cd "$CURRENT_DIR" && nohup "$PYTHON_TO_USE" "$SCRIPT_PATH" > "$LOG_PATH" 2>&1 &
             NEW_PID=$!
             
-            # Verify the process started successfully
-            sleep 1
+            log_message "Process started with PID: $NEW_PID"
+            
+            # Enhanced verification with multiple checks
+            sleep 3  # Give more time for process to start
+            
+            # Check if process is still running
             if kill -0 "$NEW_PID" 2>/dev/null; then
                 log_message "✓ Successfully started new process:"
                 log_message "  PID: $NEW_PID - Script: localRunner.py"
                 log_message "  Python interpreter: $PYTHON_TO_USE"
-                log_message "  Output log: $HOME/localRunner.log"
+                log_message "  Output log: $LOG_PATH"
+                log_message "  Working directory: $CURRENT_DIR"
                 log_message "  Process status: Running"
                 
                 # Get additional process info if possible
@@ -634,17 +692,136 @@ if [ $PULL_EXIT_CODE -eq 0 ]; then
                     fi
                 fi
                 
+                # Check if log file is being written to
+                if [ -f "$LOG_PATH" ]; then
+                    LOG_SIZE=$(wc -c < "$LOG_PATH" 2>/dev/null || echo "0")
+                    log_message "  Log file size: $LOG_SIZE bytes"
+                    
+                    # Show first few lines of log for debugging
+                    if [ "$LOG_SIZE" -gt 0 ]; then
+                        log_message "  First lines of log:"
+                        head -5 "$LOG_PATH" 2>/dev/null | while read -r line; do
+                            log_message "    $line"
+                        done
+                    fi
+                else
+                    log_message "  WARNING: Log file not created yet"
+                fi
+                
                 # Send successful startup notification to Discord
-                send_notification "✅ **Process Started Successfully**\n\n• PID: \`$NEW_PID\`\n• Script: \`localRunner.py\`\n• Python: \`$PYTHON_TO_USE\`\n• Log: \`$HOME/localRunner.log\`\n• Status: **Running**$PROCESS_DETAILS" "success"
+                send_notification "✅ **Process Started Successfully**\n\n• PID: \`$NEW_PID\`\n• Script: \`localRunner.py\`\n• Python: \`$PYTHON_TO_USE\`\n• Log: \`$LOG_PATH\`\n• Working Dir: \`$CURRENT_DIR\`\n• Status: **Running**$PROCESS_DETAILS" "success"
                 
                 # Enhanced success message with process info
-                SUCCESS_MSG="$SUCCESS_MSG\n\n🐍 **Process Started:**\n• PID: \`$NEW_PID\`\n• Script: \`localRunner.py\`\n• Python: \`$PYTHON_TO_USE\`\n• Log: \`$HOME/localRunner.log\`\n• Status: Running"
+                SUCCESS_MSG="$SUCCESS_MSG\n\n🐍 **Process Started:**\n• PID: \`$NEW_PID\`\n• Script: \`localRunner.py\`\n• Python: \`$PYTHON_TO_USE\`\n• Log: \`$LOG_PATH\`\n• Status: Running"
             else
                 log_message "✗ Failed to start localRunner.py - process died immediately"
                 log_message "  PID was: $NEW_PID - Script: localRunner.py (failed)"
                 
+                # Check for common issues and provide debugging info
+                log_message "Debugging information:"
+                log_message "  Python executable: $PYTHON_TO_USE"
+                log_message "  Script path: $SCRIPT_PATH"
+                log_message "  Current directory: $CURRENT_DIR"
+                log_message "  Log path: $LOG_PATH"
+                
+                # Check if Python executable works
+                if "$PYTHON_TO_USE" --version >/dev/null 2>&1; then
+                    log_message "  Python executable test: PASSED"
+                else
+                    log_message "  Python executable test: FAILED"
+                fi
+                
+                # Check if script exists and is readable
+                if [ -r "$SCRIPT_PATH" ]; then
+                    log_message "  Script file test: PASSED (readable)"
+                else
+                    log_message "  Script file test: FAILED (not readable or missing)"
+                fi
+                
+                # Show log file content if it exists
+                if [ -f "$LOG_PATH" ]; then
+                    LOG_SIZE=$(wc -c < "$LOG_PATH" 2>/dev/null || echo "0")
+                    log_message "  Log file created, size: $LOG_SIZE bytes"
+                    if [ "$LOG_SIZE" -gt 0 ]; then
+                        log_message "  Log file contents:"
+                        cat "$LOG_PATH" 2>/dev/null | while read -r line; do
+                            log_message "    $line"
+                        done
+                    fi
+                else
+                    log_message "  Log file not created"
+                fi
+                
+                # Try a simple test run to see what happens
+                log_message "  Attempting test run..."
+                TEST_OUTPUT=$("$PYTHON_TO_USE" -c "print('Python test successful'); import sys; print('Python version:', sys.version)" 2>&1)
+                log_message "  Python test output: $TEST_OUTPUT"
+                
                 # Send failure notification to Discord
-                send_notification "❌ **Process Startup Failed**\n\n• Script: \`localRunner.py\`\n• Python: \`$PYTHON_TO_USE\`\n• PID was: \`$NEW_PID\`\n• Issue: Process died immediately after startup\n• Check log: \`$HOME/localRunner.log\`" "error"
+                send_notification "❌ **Process Startup Failed**\n\n• Script: \`localRunner.py\`\n• Python: \`$PYTHON_TO_USE\`\n• PID was: \`$NEW_PID\`\n• Issue: Process died immediately after startup\n• Check log: \`$LOG_PATH\`\n• Working Dir: \`$CURRENT_DIR\`" "error"
+                
+                # Try alternative startup methods for Serv00
+                log_message "Attempting alternative startup methods..."
+                
+                # Method 1: Try without nohup
+                log_message "Trying without nohup..."
+                "$PYTHON_TO_USE" "$SCRIPT_PATH" > "$LOG_PATH" 2>&1 &
+                ALT_PID=$!
+                sleep 2
+                if kill -0 "$ALT_PID" 2>/dev/null; then
+                    log_message "✓ Alternative method 1 successful (PID: $ALT_PID)"
+                    send_notification "✅ **Process Started with Alternative Method**\n\n• PID: \`$ALT_PID\`\n• Method: Without nohup\n• Script: \`localRunner.py\`" "success"
+                else
+                    log_message "✗ Alternative method 1 failed"
+                    
+                    # Method 2: Try with explicit shell
+                    log_message "Trying with explicit shell..."
+                    /bin/sh -c "cd '$CURRENT_DIR' && '$PYTHON_TO_USE' '$SCRIPT_PATH' > '$LOG_PATH' 2>&1 &"
+                    sleep 2
+                    
+                    # Find the new process by checking for localRunner.py
+                    if command -v pgrep >/dev/null 2>&1; then
+                        SHELL_PID=$(pgrep -f "localRunner.py" 2>/dev/null | tail -1)
+                    else
+                        SHELL_PID=$(ps aux | grep "localRunner.py" | grep -v grep | awk '{print $2}' | tail -1)
+                    fi
+                    
+                    if [ -n "$SHELL_PID" ] && kill -0 "$SHELL_PID" 2>/dev/null; then
+                        log_message "✓ Alternative method 2 successful (PID: $SHELL_PID)"
+                        send_notification "✅ **Process Started with Shell Method**\n\n• PID: \`$SHELL_PID\`\n• Method: Explicit shell\n• Script: \`localRunner.py\`" "success"
+                    else
+                        log_message "✗ Alternative method 2 failed"
+                        
+                        # Method 3: Check if we need to install dependencies first
+                        log_message "Checking if dependencies are missing..."
+                        DEP_CHECK=$("$PYTHON_TO_USE" -c "
+import sys
+try:
+    import requests
+    print('requests: OK')
+except ImportError:
+    print('requests: MISSING')
+    sys.exit(1)
+try:
+    import websocket
+    print('websocket: OK')
+except ImportError:
+    print('websocket: MISSING')
+    sys.exit(1)
+print('Dependencies check: PASSED')
+" 2>&1)
+                        
+                        log_message "Dependency check result: $DEP_CHECK"
+                        
+                        if echo "$DEP_CHECK" | grep -q "MISSING"; then
+                            log_message "Missing dependencies detected, deployment may need dependency installation"
+                            send_notification "⚠️ **Process Startup Failed - Missing Dependencies**\n\n• Issue: Python dependencies missing\n• Check: \`$DEP_CHECK\`\n• Action: May need to install requirements.txt" "warning"
+                        else
+                            log_message "All alternative startup methods failed"
+                            send_notification "❌ **All Startup Methods Failed**\n\n• Script: \`localRunner.py\`\n• Tried: nohup, direct, shell methods\n• Check log: \`$LOG_PATH\`" "error"
+                        fi
+                    fi
+                fi
             fi
         else
             log_message "WARNING: No Python interpreter found to start localRunner.py"
