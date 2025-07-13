@@ -58,7 +58,7 @@ twitch_miner = TwitchChannelPointsMiner(
     # in the chat even without @ sign
     disable_at_in_nickname=True,
     logger_settings=LoggerSettings(
-        save=False,
+        save=True,
         console_level=logging.INFO,
         console_username=False,
         # Create a file rotation handler
@@ -68,7 +68,7 @@ twitch_miner = TwitchChannelPointsMiner(
         # Use tz database names. Example: "America/Denver"
         time_zone="Europe/Berlin",
         file_level=logging.INFO,
-        emoji=True,
+        emoji=False,
         less=True,
         colored=False,
         # Color allowed are: BLACK, RED, GREEN, YELLOW,
