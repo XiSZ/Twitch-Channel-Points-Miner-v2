@@ -2,23 +2,57 @@
 
 # Configuration
 REPO_PATH="repo/git/pub/TTV/"
-LOG_FILE="repo/git/pub/TTV//deploy.log"
-LOCK_FILE="/tmp/deploy.lock"
-BRANCH="main"
+LOG_FILE="repo/git/pub/TTV/deploy.log"
+LOCK_FILE="$HOME/tmp/deploy.lock"
+BRANCH="master"
 
-webhook = os.setenv("WEBHOOK", "")
+# Load environment variables from .env file if it exists
+load_env_file() {
+    local env_file="${1:-.env}"
+    
+    if [ -f "$env_file" ]; then
+        echo "Loading environment variables from $env_file"
+        # Read .env file and export variables (skip comments and empty lines)
+        while IFS='=' read -r key value; do
+            # Skip comments and empty lines
+            case "$key" in
+                '#'*|'') continue ;;
+            esac
+            
+            # Remove quotes from value if present
+            value=$(echo "$value" | sed 's/^["'\'']//' | sed 's/["'\'']$//')
+            
+            # Export the variable
+            export "$key=$value"
+        done < "$env_file"
+    else
+        echo "No .env file found at $env_file"
+    fi
+}
 
-# Email configuration
-EMAIL_RECIPIENT="your-email@example.com"
-SEND_EMAIL_ON_ERROR=true
-SEND_EMAIL_ON_SUCCESS=false
+# Load .env file from script directory
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+load_env_file "$SCRIPT_DIR/.env"
 
-# Webhook configuration
-WEBHOOK_URL=webhook
-SEND_WEBHOOK_NOTIFICATIONS=true
+# Get webhook URL from environment variable (now potentially loaded from .env)
+WEBHOOK_URL="${WEBHOOK:-}"
 
-# Create log directory if it doesn't exist
+# Email configuration (can be overridden in .env)
+EMAIL_RECIPIENT="${EMAIL_RECIPIENT:-your-email@example.com}"
+SEND_EMAIL_ON_ERROR="${SEND_EMAIL_ON_ERROR:-true}"
+SEND_EMAIL_ON_SUCCESS="${SEND_EMAIL_ON_SUCCESS:-false}"
+
+# Webhook configuration (can be overridden in .env)
+SEND_WEBHOOK_NOTIFICATIONS="${SEND_WEBHOOK_NOTIFICATIONS:-true}"
+
+# Allow overriding paths from .env
+REPO_PATH="${REPO_PATH:-repo/git/pub/TTV/}"
+LOG_FILE="${LOG_FILE:-repo/git/pub/TTV/deploy.log}"
+BRANCH="${BRANCH:-main}"
+
+# Create directories if they don't exist
 mkdir -p "$(dirname "$LOG_FILE")"
+mkdir -p "$(dirname "$LOCK_FILE")"
 
 # Function to log with timestamp
 log_message() {
@@ -31,8 +65,8 @@ send_email() {
     local message="$2"
     
     if [ "$SEND_EMAIL_ON_ERROR" = "true" ] || [ "$SEND_EMAIL_ON_SUCCESS" = "true" ]; then
-        # FreeBSD uses different mail command syntax
-        echo "$message" | /usr/bin/mail -s "$subject" "$EMAIL_RECIPIENT" 2>/dev/null
+        # Use printf instead of echo for better compatibility
+        printf "%s\n" "$message" | mail -s "$subject" "$EMAIL_RECIPIENT" 2>/dev/null
         if [ $? -eq 0 ]; then
             log_message "Email notification sent: $subject"
         else
@@ -52,31 +86,23 @@ send_webhook() {
             color="#ff0000"  # Red for error
         fi
         
-        # Use FreeBSD's fetch command or curl if available
+        # Use curl if available, otherwise use fetch
         if command -v curl >/dev/null 2>&1; then
-            # Slack format with curl
-            local payload="{
-                \"attachments\": [{
-                    \"color\": \"$color\",
-                    \"fields\": [{
-                        \"title\": \"Auto-Deploy Status\",
-                        \"value\": \"$message\",
-                        \"short\": false
-                    }],
-                    \"footer\": \"$(hostname)\",
-                    \"ts\": $(date +%s)
-                }]
-            }"
+            # Simple JSON payload for better compatibility
+            local payload="{\"text\":\"Auto-Deploy: $message\",\"username\":\"$(hostname)\"}"
             
             curl -X POST -H 'Content-type: application/json' \
-                --data "$payload" \
+                -d "$payload" \
                 "$WEBHOOK_URL" \
+                --connect-timeout 10 \
+                --max-time 30 \
                 --silent --output /dev/null
         elif command -v fetch >/dev/null 2>&1; then
             # FreeBSD's native fetch command
-            local temp_file="/tmp/webhook_payload_$$"
-            echo "{\"text\":\"$message\"}" > "$temp_file"
-            fetch -q -o /dev/null --method=POST \
+            local temp_file="$HOME/tmp/webhook_payload_$$"
+            printf '{"text":"Auto-Deploy: %s","username":"%s"}\n' "$message" "$(hostname)" > "$temp_file"
+            fetch -q -o /dev/null -T 30 \
+                --method=POST \
                 --header="Content-Type: application/json" \
                 --upload-file="$temp_file" \
                 "$WEBHOOK_URL"
@@ -108,8 +134,8 @@ fi
 echo $$ > "$LOCK_FILE"
 log_message "Starting smart deployment (PID: $$)"
 
-# Set PATH for FreeBSD
-export PATH="/usr/local/bin:/usr/bin:/bin"
+# Set PATH for FreeBSD/Serv00
+export PATH="$HOME/usr/local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
 # Validate repository path
 if [ ! -d "$REPO_PATH" ]; then
@@ -136,6 +162,9 @@ if [ ! -d ".git" ]; then
     send_webhook "$ERROR_MSG" "error"
     exit 1
 fi
+
+# Configure git to use system certificates if needed
+git config --global http.sslCAinfo /etc/ssl/cert.pem 2>/dev/null || true
 
 # Fetch latest changes
 log_message "Fetching latest changes from origin/$BRANCH"
@@ -200,7 +229,12 @@ if [ $PULL_EXIT_CODE -eq 0 ]; then
     # Optional: Install Python dependencies if requirements.txt exists
     if [ -f "requirements.txt" ]; then
         log_message "Installing Python dependencies..."
-        if command -v python3 >/dev/null 2>&1; then
+        # Try different Python versions available on Serv00
+        if command -v python3.9 >/dev/null 2>&1; then
+            python3.9 -m pip install --user -r requirements.txt >> "$LOG_FILE" 2>&1
+        elif command -v python3.8 >/dev/null 2>&1; then
+            python3.8 -m pip install --user -r requirements.txt >> "$LOG_FILE" 2>&1
+        elif command -v python3 >/dev/null 2>&1; then
             python3 -m pip install --user -r requirements.txt >> "$LOG_FILE" 2>&1
         elif command -v python >/dev/null 2>&1; then
             python -m pip install --user -r requirements.txt >> "$LOG_FILE" 2>&1
