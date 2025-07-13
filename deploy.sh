@@ -1,20 +1,20 @@
-#!/bin/bash
-
-webHook = os.setEnv("WEBHOOK") or ""
+#!/bin/sh
 
 # Configuration
 REPO_PATH="repo/git/pub/TTV/"
-LOG_FILE="repo/git/pub/TTV/deploy.log"
+LOG_FILE="repo/git/pub/TTV//deploy.log"
 LOCK_FILE="/tmp/deploy.lock"
-BRANCH="master"
+BRANCH="main"
+
+webhook = os.setenv("WEBHOOK", "")
 
 # Email configuration
 EMAIL_RECIPIENT="your-email@example.com"
 SEND_EMAIL_ON_ERROR=true
 SEND_EMAIL_ON_SUCCESS=false
 
-# Slack/Discord webhook configuration
-WEBHOOK_URL=webHook
+# Webhook configuration
+WEBHOOK_URL=webhook
 SEND_WEBHOOK_NOTIFICATIONS=true
 
 # Create log directory if it doesn't exist
@@ -25,13 +25,14 @@ log_message() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
 }
 
-# Function to send email notification
+# Function to send email notification (FreeBSD compatible)
 send_email() {
     local subject="$1"
     local message="$2"
     
-    if [ "$SEND_EMAIL_ON_ERROR" = true ] || [ "$SEND_EMAIL_ON_SUCCESS" = true ]; then
-        echo "$message" | mail -s "$subject" "$EMAIL_RECIPIENT" 2>/dev/null
+    if [ "$SEND_EMAIL_ON_ERROR" = "true" ] || [ "$SEND_EMAIL_ON_SUCCESS" = "true" ]; then
+        # FreeBSD uses different mail command syntax
+        echo "$message" | /usr/bin/mail -s "$subject" "$EMAIL_RECIPIENT" 2>/dev/null
         if [ $? -eq 0 ]; then
             log_message "Email notification sent: $subject"
         else
@@ -45,44 +46,43 @@ send_webhook() {
     local message="$1"
     local status="$2"
     
-    if [ "$SEND_WEBHOOK_NOTIFICATIONS" = true ] && [ -n "$WEBHOOK_URL" ]; then
+    if [ "$SEND_WEBHOOK_NOTIFICATIONS" = "true" ] && [ -n "$WEBHOOK_URL" ]; then
         local color="#36a64f"  # Green for success
         if [ "$status" = "error" ]; then
             color="#ff0000"  # Red for error
         fi
         
-        # Slack format
-        # local payload="{
-        #     \"attachments\": [{
-        #         \"color\": \"$color\",
-        #         \"fields\": [{
-        #             \"title\": \"Auto-Deploy Status\",
-        #             \"value\": \"$message\",
-        #             \"short\": false
-        #         }],
-        #         \"footer\": \"$(hostname)\",
-        #         \"ts\": $(date +%s)
-        #     }]
-        # }"
-        
-        # Discord format (comment out Slack format above and uncomment this for Discord)
-        local payload="{
-            \"embeds\": [{
-                \"title\": \"Auto-Deploy Status\",
-                \"description\": \"$message\",
-                \"color\": $((0x${color#*#})),
-                \"footer\": {
-                    \"text\": \"$(hostname)\"
-                },
-                \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\"
-            }]
-        }"
-        
-        curl -X POST -H 'Content-type: application/json' \
-            --data "$payload" \
-            "$WEBHOOK_URL" \
-            --silent --output /dev/null
+        # Use FreeBSD's fetch command or curl if available
+        if command -v curl >/dev/null 2>&1; then
+            # Slack format with curl
+            local payload="{
+                \"attachments\": [{
+                    \"color\": \"$color\",
+                    \"fields\": [{
+                        \"title\": \"Auto-Deploy Status\",
+                        \"value\": \"$message\",
+                        \"short\": false
+                    }],
+                    \"footer\": \"$(hostname)\",
+                    \"ts\": $(date +%s)
+                }]
+            }"
             
+            curl -X POST -H 'Content-type: application/json' \
+                --data "$payload" \
+                "$WEBHOOK_URL" \
+                --silent --output /dev/null
+        elif command -v fetch >/dev/null 2>&1; then
+            # FreeBSD's native fetch command
+            local temp_file="/tmp/webhook_payload_$$"
+            echo "{\"text\":\"$message\"}" > "$temp_file"
+            fetch -q -o /dev/null --method=POST \
+                --header="Content-Type: application/json" \
+                --upload-file="$temp_file" \
+                "$WEBHOOK_URL"
+            rm -f "$temp_file"
+        fi
+        
         if [ $? -eq 0 ]; then
             log_message "Webhook notification sent"
         else
@@ -96,7 +96,7 @@ cleanup() {
     rm -f "$LOCK_FILE"
     log_message "Cleanup completed"
 }
-trap cleanup EXIT
+trap cleanup EXIT INT TERM
 
 # Prevent multiple instances
 if [ -f "$LOCK_FILE" ]; then
@@ -107,6 +107,9 @@ fi
 # Create lock file with PID
 echo $$ > "$LOCK_FILE"
 log_message "Starting smart deployment (PID: $$)"
+
+# Set PATH for FreeBSD
+export PATH="/usr/local/bin:/usr/bin:/bin"
 
 # Validate repository path
 if [ ! -d "$REPO_PATH" ]; then
@@ -194,15 +197,24 @@ if [ $PULL_EXIT_CODE -eq 0 ]; then
     
     log_message "$SUCCESS_MSG"
     
-    # Optional: Run additional commands after successful pull
-    # log_message "Running post-deployment tasks..."
-    # npm install >> "$LOG_FILE" 2>&1
-    # composer install >> "$LOG_FILE" 2>&1
-    # php artisan migrate >> "$LOG_FILE" 2>&1
-    # php artisan cache:clear >> "$LOG_FILE" 2>&1
+    # Optional: Install Python dependencies if requirements.txt exists
+    if [ -f "requirements.txt" ]; then
+        log_message "Installing Python dependencies..."
+        if command -v python3 >/dev/null 2>&1; then
+            python3 -m pip install --user -r requirements.txt >> "$LOG_FILE" 2>&1
+        elif command -v python >/dev/null 2>&1; then
+            python -m pip install --user -r requirements.txt >> "$LOG_FILE" 2>&1
+        fi
+    fi
+    
+    # Optional: Set executable permissions if needed
+    if [ -f "run.py" ]; then
+        chmod +x run.py
+        log_message "Set executable permissions for run.py"
+    fi
     
     # Send success notifications
-    if [ "$SEND_EMAIL_ON_SUCCESS" = true ]; then
+    if [ "$SEND_EMAIL_ON_SUCCESS" = "true" ]; then
         send_email "Deployment Success" "$SUCCESS_MSG"
     fi
     send_webhook "$SUCCESS_MSG" "success"
