@@ -1,6 +1,8 @@
 #!/bin/sh
 
-# Configuration
+# FreeBSD/Serv00 compatible deployment script
+
+# Configuration defaults - can be overridden by .env file
 REPO_PATH="repo/git/pub/TTV/"
 LOG_FILE="repo/git/pub/TTV/deploy.log"
 LOCK_FILE="$HOME/tmp/deploy.lock"
@@ -48,7 +50,18 @@ SEND_WEBHOOK_NOTIFICATIONS="${SEND_WEBHOOK_NOTIFICATIONS:-true}"
 # Allow overriding paths from .env
 REPO_PATH="${REPO_PATH:-repo/git/pub/TTV/}"
 LOG_FILE="${LOG_FILE:-repo/git/pub/TTV/deploy.log}"
-BRANCH="${BRANCH:-main}"
+BRANCH="${BRANCH:-master}"
+
+# Convert relative paths to absolute paths to avoid issues
+if [ "${REPO_PATH#/}" = "$REPO_PATH" ]; then
+    REPO_PATH="$HOME/$REPO_PATH"
+fi
+if [ "${LOG_FILE#/}" = "$LOG_FILE" ]; then
+    LOG_FILE="$HOME/$LOG_FILE"
+fi
+
+echo "Using REPO_PATH: $REPO_PATH"
+echo "Using LOG_FILE: $LOG_FILE"
 
 # Create directories if they don't exist
 mkdir -p "$(dirname "$LOG_FILE")"
@@ -56,6 +69,8 @@ mkdir -p "$(dirname "$LOCK_FILE")"
 
 # Function to log with timestamp
 log_message() {
+    # Ensure log directory exists before writing
+    mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
 }
 
@@ -100,12 +115,13 @@ send_webhook() {
         elif command -v fetch >/dev/null 2>&1; then
             # FreeBSD's native fetch command
             local temp_file="$HOME/tmp/webhook_payload_$$"
+            mkdir -p "$HOME/tmp" 2>/dev/null
             printf '{"text":"Auto-Deploy: %s","username":"%s"}\n' "$message" "$(hostname)" > "$temp_file"
             fetch -q -o /dev/null -T 30 \
                 --method=POST \
                 --header="Content-Type: application/json" \
                 --upload-file="$temp_file" \
-                "$WEBHOOK_URL"
+                "$WEBHOOK_URL" 2>/dev/null
             rm -f "$temp_file"
         fi
         
@@ -134,8 +150,11 @@ fi
 echo $$ > "$LOCK_FILE"
 log_message "Starting smart deployment (PID: $$)"
 
-# Set PATH for FreeBSD/Serv00
-export PATH="$HOME/usr/local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+# Set PATH for FreeBSD/Serv00 - include common locations
+export PATH="$HOME/.local/bin:$HOME/usr/local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+
+# Set Python path for user-installed packages
+export PYTHONPATH="$HOME/.local/lib/python3.9/site-packages:$HOME/.local/lib/python3.8/site-packages:$PYTHONPATH"
 
 # Validate repository path
 if [ ! -d "$REPO_PATH" ]; then
@@ -165,6 +184,7 @@ fi
 
 # Configure git to use system certificates if needed
 git config --global http.sslCAinfo /etc/ssl/cert.pem 2>/dev/null || true
+git config --global http.sslverify true 2>/dev/null || true
 
 # Fetch latest changes
 log_message "Fetching latest changes from origin/$BRANCH"
@@ -229,15 +249,30 @@ if [ $PULL_EXIT_CODE -eq 0 ]; then
     # Optional: Install Python dependencies if requirements.txt exists
     if [ -f "requirements.txt" ]; then
         log_message "Installing Python dependencies..."
-        # Try different Python versions available on Serv00
-        if command -v python3.9 >/dev/null 2>&1; then
-            python3.9 -m pip install --user -r requirements.txt >> "$LOG_FILE" 2>&1
-        elif command -v python3.8 >/dev/null 2>&1; then
-            python3.8 -m pip install --user -r requirements.txt >> "$LOG_FILE" 2>&1
-        elif command -v python3 >/dev/null 2>&1; then
-            python3 -m pip install --user -r requirements.txt >> "$LOG_FILE" 2>&1
-        elif command -v python >/dev/null 2>&1; then
-            python -m pip install --user -r requirements.txt >> "$LOG_FILE" 2>&1
+        
+        # Check if virtual environment exists and use it
+        if [ -f ".venv/bin/python" ]; then
+            log_message "Using virtual environment"
+            .venv/bin/python -m pip install --upgrade -r requirements.txt >> "$LOG_FILE" 2>&1
+            PIP_EXIT_CODE=$?
+        else
+            # Try different Python versions available on Serv00
+            PIP_EXIT_CODE=1
+            for PYTHON_CMD in python3.11 python3.10 python3.9 python3.8 python3 python; do
+                if command -v "$PYTHON_CMD" >/dev/null 2>&1; then
+                    log_message "Trying to install dependencies with $PYTHON_CMD"
+                    "$PYTHON_CMD" -m pip install --user --upgrade -r requirements.txt >> "$LOG_FILE" 2>&1
+                    PIP_EXIT_CODE=$?
+                    if [ $PIP_EXIT_CODE -eq 0 ]; then
+                        log_message "Successfully installed dependencies with $PYTHON_CMD"
+                        break
+                    fi
+                fi
+            done
+        fi
+        
+        if [ $PIP_EXIT_CODE -ne 0 ]; then
+            log_message "WARNING: Failed to install Python dependencies"
         fi
     fi
     
