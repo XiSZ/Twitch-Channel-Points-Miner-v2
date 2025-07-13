@@ -1,6 +1,7 @@
 #!/bin/sh
 
 # FreeBSD/Serv00 compatible deployment script
+# Uses POSIX shell features for maximum compatibility
 
 # Configuration defaults - can be overridden by .env file
 REPO_PATH="repo/git/pub/TTV/"
@@ -10,7 +11,12 @@ BRANCH="master"
 
 # Load environment variables from .env file if it exists
 load_env_file() {
-    local env_file="${1:-.env}"
+    # Use first parameter if provided, otherwise default to .env
+    if [ "$#" -gt 0 ]; then
+        env_file="$1"
+    else
+        env_file=".env"
+    fi
     
     if [ -f "$env_file" ]; then
         echo "Loading environment variables from $env_file"
@@ -517,9 +523,13 @@ log_message "Updates found. Proceeding with deployment..."
 log_message "Local commit:  $LOCAL_COMMIT"
 log_message "Remote commit: $REMOTE_COMMIT"
 
+# Create short commit hashes for notifications (POSIX compatible)
+LOCAL_COMMIT_SHORT=$(echo "$LOCAL_COMMIT" | cut -c1-8)
+REMOTE_COMMIT_SHORT=$(echo "$REMOTE_COMMIT" | cut -c1-8)
+
 # Send update notification
 COMMIT_MESSAGE_SHORT=$(git log --oneline -1 "origin/$BRANCH" 2>/dev/null)
-send_notification "Updates found! Starting deployment...\n**From:** \`${LOCAL_COMMIT:0:8}\`\n**To:** \`${REMOTE_COMMIT:0:8}\`\n**Latest commit:** $COMMIT_MESSAGE_SHORT" "info"
+send_notification "Updates found! Starting deployment...\n**From:** \`$LOCAL_COMMIT_SHORT\`\n**To:** \`$REMOTE_COMMIT_SHORT\`\n**Latest commit:** $COMMIT_MESSAGE_SHORT" "info"
 
 # Get commit message for notification
 COMMIT_MESSAGE=$(git log --oneline -1 "origin/$BRANCH" 2>/dev/null | cut -d' ' -f2-)
@@ -621,7 +631,7 @@ if [ $PULL_EXIT_CODE -eq 0 ]; then
         else
             log_message "ERROR: localRunner.py is not readable"
             send_notification "❌ **Permission Error**\n\nlocalRunner.py is not readable\nCheck file permissions" "error"
-            return 1
+            exit 1
         fi
         
         # Find the best Python version to use (Serv00 specific order)
