@@ -150,6 +150,25 @@ fi
 echo $$ > "$LOCK_FILE"
 log_message "Starting smart deployment (PID: $$)"
 
+# Kill any running Python processes before deployment
+log_message "Stopping any running Python processes..."
+for PYTHON_CMD in python3.11 python3.10 python3.9 python3.8 python3 python; do
+    if command -v "$PYTHON_CMD" >/dev/null 2>&1; then
+        # Use killall with SIGTERM (-15) first, then SIGKILL (-9) if needed
+        if command -v killall >/dev/null 2>&1; then
+            killall -15 "$PYTHON_CMD" 2>/dev/null && log_message "Stopped $PYTHON_CMD processes with SIGTERM"
+            sleep 2
+            killall -9 "$PYTHON_CMD" 2>/dev/null && log_message "Force killed $PYTHON_CMD processes with SIGKILL"
+        else
+            # Fallback for systems without killall
+            pkill -15 -f "$PYTHON_CMD" 2>/dev/null && log_message "Stopped $PYTHON_CMD processes with pkill SIGTERM"
+            sleep 2
+            pkill -9 -f "$PYTHON_CMD" 2>/dev/null && log_message "Force killed $PYTHON_CMD processes with pkill SIGKILL"
+        fi
+    fi
+done
+log_message "Python process cleanup completed"
+
 # Set PATH for FreeBSD/Serv00 - include common locations
 export PATH="$HOME/.local/bin:$HOME/usr/local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
@@ -280,6 +299,32 @@ if [ $PULL_EXIT_CODE -eq 0 ]; then
     if [ -f "run.py" ]; then
         chmod +x run.py
         log_message "Set executable permissions for run.py"
+    fi
+    
+    # Start the new Python process after successful deployment
+    if [ -f "localRunner.py" ]; then
+        log_message "Starting new Python process with localRunner.py"
+        
+        # Find the best Python version to use
+        PYTHON_TO_USE=""
+        for PYTHON_CMD in python3.11 python3.10 python3.9 python3.8 python3 python; do
+            if command -v "$PYTHON_CMD" >/dev/null 2>&1; then
+                PYTHON_TO_USE="$PYTHON_CMD"
+                break
+            fi
+        done
+        
+        if [ -n "$PYTHON_TO_USE" ]; then
+            # Start the process in the background with nohup
+            nohup "$PYTHON_TO_USE" localRunner.py > "$HOME/localRunner.log" 2>&1 &
+            NEW_PID=$!
+            log_message "Started localRunner.py with $PYTHON_TO_USE (PID: $NEW_PID)"
+            log_message "Output will be logged to: $HOME/localRunner.log"
+        else
+            log_message "WARNING: No Python interpreter found to start localRunner.py"
+        fi
+    else
+        log_message "WARNING: localRunner.py not found, skipping process startup"
     fi
     
     # Send success notifications
