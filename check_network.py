@@ -79,7 +79,7 @@ def main():
 
     if hosting_provider.lower() == "serv00":
         print("✅ Serv00 detected - recommended host: '0.0.0.0'")
-    elif local_ip.startswith("192.168.") or local_ip.startswith("10."):
+    elif local_ip.startswith(("192.168.", "10.")):
         print(f"🏠 Local network detected - you can use '{local_ip}' "
               "for network access")
     else:
