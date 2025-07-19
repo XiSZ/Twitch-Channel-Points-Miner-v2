@@ -132,7 +132,7 @@ class Streamer(object):
         self.toggle_chat()
 
         logger.info(
-            f"{self} is Offline! - Stream was at {self.streamer_url}",
+            f"{self} is Offline!",
             extra={
                 "emoji": ":sleeping:",
                 "event": Events.STREAMER_OFFLINE,
