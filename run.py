@@ -338,6 +338,7 @@ twitch_miner.mine(
         "adorbie",
         "niiau",
         "smotheredbutta",
+        "trialbynugget",
         "laurenp681",
         "strawberrytops",
         "suzie95",
