@@ -327,7 +327,6 @@ twitch_miner.mine(
         "avivasofia",
         "ggxenia",
         "meowdalyn",
-        "midoriopup",
         "s0apy",
         "n4y0hmie",
         "charlyne",
