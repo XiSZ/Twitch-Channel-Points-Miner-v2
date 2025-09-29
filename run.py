@@ -330,7 +330,7 @@ twitch_miner.mine(
         "midoriopup",
         "s0apy",
         "n4y0hmie",
-        "seckooh",
+        "charlyne",
         "mira004",
         "Witch_Sama",
         "nemuri_bun",
