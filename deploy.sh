@@ -1,17 +1,26 @@
 #!/bin/sh
-
-# FreeBSD/Serv00 compatible deployment script
-# Uses POSIX shell features for maximum compatibility
+# Unified Clean Deployment Script for Twitch Channel Points Miner
+# Combines functionality from all deployment scripts with forced clean pull
+# This script performs a HARD RESET and clean pull from remote repository
 
 # Configuration defaults - can be overridden by .env file
-REPO_PATH="repo/git/pub/TTV/"
-LOG_FILE="repo/git/pub/TTV/deploy.log"
-LOCK_FILE="$HOME/tmp/deploy.lock"
+REPO_PATH="$(cd "$(dirname "$0")" && pwd)"
+LOG_FILE="$HOME/logs/unified_clean_deploy.log"
+LOCK_FILE="$HOME/tmp/clean_deploy.lock"
 BRANCH="master"
+
+# Set environment for compatibility (FreeBSD/Serv00/Linux)
+export PATH="$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+export PYTHONPATH="$HOME/.local/lib/python3.11/site-packages:$HOME/.local/lib/python3.10/site-packages:$HOME/.local/lib/python3.9/site-packages:$HOME/.local/lib/python3.8/site-packages:$PYTHONPATH"
+export PYTHONUNBUFFERED=1
+
+# Create directories if they don't exist
+mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null
+mkdir -p "$(dirname "$LOCK_FILE")" 2>/dev/null
+mkdir -p "$HOME/logs" 2>/dev/null
 
 # Load environment variables from .env file if it exists
 load_env_file() {
-    # Use first parameter if provided, otherwise default to .env
     if [ "$#" -gt 0 ]; then
         env_file="$1"
     else
@@ -20,17 +29,12 @@ load_env_file() {
     
     if [ -f "$env_file" ]; then
         echo "Loading environment variables from $env_file"
-        # Read .env file and export variables (skip comments and empty lines)
         while IFS='=' read -r key value; do
-            # Skip comments and empty lines
             case "$key" in
                 '#'*|'') continue ;;
             esac
             
-            # Remove quotes from value if present
             value=$(echo "$value" | sed 's/^["'\'']//' | sed 's/["'\'']$//')
-            
-            # Export the variable
             export "$key=$value"
         done < "$env_file"
     else
@@ -39,66 +43,17 @@ load_env_file() {
 }
 
 # Load .env file from script directory
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-load_env_file "$SCRIPT_DIR/.env"
+load_env_file "$REPO_PATH/.env"
 
-# Get webhook URL from environment variable (now potentially loaded from .env)
+# Get configuration from environment variables
 WEBHOOK_URL="${WEBHOOK:-}"
-
-# Telegram configuration (can be overridden in .env)
 TELEGRAM_TOKEN="${TELEGRAMTOKEN:-}"
 TELEGRAM_CHAT_ID="${CHATID:-}"
 
-# Email configuration (can be overridden in .env)
-EMAIL_RECIPIENT="${EMAIL_RECIPIENT:-your-email@example.com}"
-SEND_EMAIL_ON_ERROR="${SEND_EMAIL_ON_ERROR:-true}"
-SEND_EMAIL_ON_SUCCESS="${SEND_EMAIL_ON_SUCCESS:-false}"
-
-# Notification configuration (can be overridden in .env)
-SEND_WEBHOOK_NOTIFICATIONS="${SEND_WEBHOOK_NOTIFICATIONS:-true}"
-SEND_TELEGRAM_NOTIFICATIONS="${SEND_TELEGRAM_NOTIFICATIONS:-true}"
-
-# Allow overriding paths from .env
-REPO_PATH="${REPO_PATH:-repo/git/pub/TTV/}"
-LOG_FILE="${LOG_FILE:-repo/git/pub/TTV/deploy.log}"
-BRANCH="${BRANCH:-master}"
-
-# Convert relative paths to absolute paths to avoid issues
-if [ "${REPO_PATH#/}" = "$REPO_PATH" ]; then
-    REPO_PATH="$HOME/$REPO_PATH"
-fi
-if [ "${LOG_FILE#/}" = "$LOG_FILE" ]; then
-    LOG_FILE="$HOME/$LOG_FILE"
-fi
-
-echo "Using REPO_PATH: $REPO_PATH"
-echo "Using LOG_FILE: $LOG_FILE"
-
-# Create directories if they don't exist
-mkdir -p "$(dirname "$LOG_FILE")"
-mkdir -p "$(dirname "$LOCK_FILE")"
-
 # Function to log with timestamp
 log_message() {
-    # Ensure log directory exists before writing
     mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
-}
-
-# Function to send email notification (FreeBSD compatible)
-send_email() {
-    local subject="$1"
-    local message="$2"
-    
-    if [ "$SEND_EMAIL_ON_ERROR" = "true" ] || [ "$SEND_EMAIL_ON_SUCCESS" = "true" ]; then
-        # Use printf instead of echo for better compatibility
-        printf "%s\n" "$message" | mail -s "$subject" "$EMAIL_RECIPIENT" 2>/dev/null
-        if [ $? -eq 0 ]; then
-            log_message "Email notification sent: $subject"
-        else
-            log_message "Failed to send email notification"
-        fi
-    fi
 }
 
 # Function to send webhook notification
@@ -106,45 +61,43 @@ send_webhook() {
     local message="$1"
     local status="$2"
     
-    if [ "$SEND_WEBHOOK_NOTIFICATIONS" = "true" ] && [ -n "$WEBHOOK_URL" ]; then
+    if [ -n "$WEBHOOK_URL" ]; then
         local color="#36a64f"  # Green for success
-        local title="✅ Deployment Success"
+        local title="✅ Clean Deploy Success"
         
         case "$status" in
             "error")
-                color="#ff0000"  # Red for error
-                title="❌ Deployment Error"
+                color="#ff0000"
+                title="❌ Clean Deploy Error"
                 ;;
             "warning")
-                color="#ffaa00"  # Orange for warning
-                title="⚠️ Deployment Warning"
+                color="#ffaa00"
+                title="⚠️ Clean Deploy Warning"
                 ;;
             "info")
-                color="#0099ff"  # Blue for info
-                title="ℹ️ Deployment Info"
+                color="#0099ff"
+                title="ℹ️ Clean Deploy Info"
                 ;;
             "start")
-                color="#0099ff"  # Blue for start
-                title="🚀 Deployment Started"
+                color="#0099ff"
+                title="🧹 Clean Deploy Started"
                 ;;
-            *)
-                title="✅ Deployment Success"
+            "reset")
+                color="#ff6600"
+                title="🔄 Hard Reset Performed"
                 ;;
         esac
         
-        # Use curl if available, otherwise use fetch
         if command -v curl >/dev/null 2>&1; then
-            # Discord webhook payload with embeds for better formatting
             local payload="{
-                \"username\": \"Deploy Bot\",
-                \"avatar_url\": \"https://avatars.githubusercontent.com/u/40718990\",
+                \"username\": \"Clean Deploy Bot\",
                 \"embeds\": [{
                     \"title\": \"$title\",
                     \"description\": \"$message\",
-                    \"color\": \"$(printf '%d' 0x${color#\#})\",
+                    \"color\": $(printf '%d' 0x${color#\#}),
                     \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\",
                     \"footer\": {
-                        \"text\": \"Twitch Channel Points Miner\",
+                        \"text\": \"Unified Clean Deploy\",
                         \"icon_url\": \"https://static-cdn.jtvnw.net/ttv-boxart/509658-285x380.jpg\"
                     },
                     \"fields\": [
@@ -155,42 +108,19 @@ send_webhook() {
                         },
                         {
                             \"name\": \"Repository\",
-                            \"value\": \"$REPO_PATH\",
+                            \"value\": \"$(basename "$REPO_PATH")\",
                             \"inline\": true
                         }
                     ]
                 }]
             }"
             
-            curl -X POST -H 'Content-type: application/json' \
-                -d "$payload" \
-                "$WEBHOOK_URL" \
-                --connect-timeout 10 \
-                --max-time 30 \
-                --silent --output /dev/null
-        elif command -v fetch >/dev/null 2>&1; then
-            # FreeBSD's native fetch command with simpler payload
-            local temp_file="$HOME/tmp/webhook_payload_$$"
-            mkdir -p "$HOME/tmp" 2>/dev/null
-            
-            local simple_payload="{
-                \"username\": \"$(hostname) Deploy Bot\",
-                \"content\": \"$title\\n**$message**\\n\\nServer: \`$(hostname)\`\\nRepo: \`$REPO_PATH\`\"
-            }"
-            
-            printf '%s\n' "$simple_payload" > "$temp_file"
-            fetch -q -o /dev/null -T 30 \
-                --method=POST \
-                --header="Content-Type: application/json" \
-                --upload-file="$temp_file" \
-                "$WEBHOOK_URL" 2>/dev/null
-            rm -f "$temp_file"
-        fi
-        
-        if [ $? -eq 0 ]; then
-            log_message "Discord notification sent: $title"
-        else
-            log_message "Failed to send Discord notification"
+            curl -X POST -H "Content-Type: application/json" -d "$payload" "$WEBHOOK_URL" >/dev/null 2>&1
+            if [ $? -eq 0 ]; then
+                log_message "Webhook notification sent: $title"
+            else
+                log_message "Failed to send webhook notification"
+            fi
         fi
     fi
 }
@@ -200,899 +130,560 @@ send_telegram() {
     local message="$1"
     local status="$2"
     
-    if [ "$SEND_TELEGRAM_NOTIFICATIONS" = "true" ] && [ -n "$TELEGRAM_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
+    if [ -n "$TELEGRAM_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
         local emoji="✅"
-        local status_text="Success"
-        
         case "$status" in
-            "error")
-                emoji="❌"
-                status_text="Error"
-                ;;
-            "warning")
-                emoji="⚠️"
-                status_text="Warning"
-                ;;
-            "info")
-                emoji="ℹ️"
-                status_text="Info"
-                ;;
-            "start")
-                emoji="🚀"
-                status_text="Started"
-                ;;
-            "success")
-                emoji="✅"
-                status_text="Success"
-                ;;
-            *)
-                emoji="ℹ️"
-                status_text="Update"
-                ;;
+            "error") emoji="❌" ;;
+            "warning") emoji="⚠️" ;;
+            "info") emoji="ℹ️" ;;
+            "start") emoji="🧹" ;;
+            "reset") emoji="🔄" ;;
         esac
         
-        # Format message for Telegram with proper escaping
-        local telegram_message="$emoji *Deployment $status_text*
-
-$message
-
-🖥️ *Server:* \`$(hostname)\`
-📁 *Repository:* \`$REPO_PATH\`
-⏰ *Time:* $(date '+%Y-%m-%d %H:%M:%S')"
+        local formatted_message="$emoji *Clean Deploy Update*\n\n$message\n\n🖥️ *Server:* \`$(hostname)\`\n📁 *Repository:* \`$(basename "$REPO_PATH")\`"
         
-        # Telegram API URL
-        local telegram_url="https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage"
-        
-        # Use curl if available, otherwise use fetch
         if command -v curl >/dev/null 2>&1; then
-            local telegram_payload="{
-                \"chat_id\": \"$TELEGRAM_CHAT_ID\",
-                \"text\": \"$(echo "$telegram_message" | sed 's/"/\\"/g')\",
-                \"parse_mode\": \"Markdown\",
-                \"disable_web_page_preview\": true
-            }"
-            
-            curl -X POST -H 'Content-type: application/json' \
-                -d "$telegram_payload" \
-                "$telegram_url" \
-                --connect-timeout 10 \
-                --max-time 30 \
-                --silent --output /dev/null
-        elif command -v fetch >/dev/null 2>&1; then
-            # FreeBSD's native fetch command
-            local temp_file="$HOME/tmp/telegram_payload_$$"
-            mkdir -p "$HOME/tmp" 2>/dev/null
-            
-            local telegram_payload="{
-                \"chat_id\": \"$TELEGRAM_CHAT_ID\",
-                \"text\": \"$(echo "$telegram_message" | sed 's/"/\\"/g')\",
-                \"parse_mode\": \"Markdown\",
-                \"disable_web_page_preview\": true
-            }"
-            
-            printf '%s\n' "$telegram_payload" > "$temp_file"
-            fetch -q -o /dev/null -T 30 \
-                --method=POST \
-                --header="Content-Type: application/json" \
-                --upload-file="$temp_file" \
-                "$telegram_url" 2>/dev/null
-            rm -f "$temp_file"
-        fi
-        
-        if [ $? -eq 0 ]; then
-            log_message "Telegram notification sent: $emoji Deployment $status_text"
-        else
-            log_message "Failed to send Telegram notification"
+            curl -s -X POST "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage" \
+                -d "chat_id=$TELEGRAM_CHAT_ID" \
+                -d "text=$formatted_message" \
+                -d "parse_mode=Markdown" >/dev/null 2>&1
         fi
     fi
 }
 
-# Unified notification function - sends to both Discord and Telegram
+# Combined notification function
 send_notification() {
     local message="$1"
     local status="$2"
     
-    # Send to Discord
     send_webhook "$message" "$status"
-    
-    # Send to Telegram
     send_telegram "$message" "$status"
 }
 
-# Cleanup function
-cleanup() {
-    rm -f "$LOCK_FILE"
-    log_message "Cleanup completed"
+# Function to find Python interpreter
+find_python() {
+    for py in python3.11 python3.10 python3.9 python3.8 python3 python; do
+        if command -v "$py" >/dev/null 2>&1; then
+            echo "$py"
+            return 0
+        fi
+    done
+    return 1
 }
-trap cleanup EXIT INT TERM
 
-# Prevent multiple instances
-if [ -f "$LOCK_FILE" ]; then
-    log_message "ERROR: Deployment already in progress (lock file exists)"
-    exit 1
-fi
-
-# Create lock file with PID
-echo $$ > "$LOCK_FILE"
-log_message "Starting smart deployment (PID: $$)"
-
-# Send start notification
-send_notification "Deployment process started on $(hostname)" "start"
-
-# Kill any running Python processes before deployment
-log_message "Stopping any running Python processes..."
-
-# Count total processes found for summary
-TOTAL_PROCESSES_FOUND=0
-PROCESSES_KILLED_LIST=""
-
-# First, list all Python processes that will be killed
-for PYTHON_CMD in python3.11 python3.10 python3.9 python3.8 python3 python; do
-    if command -v "$PYTHON_CMD" >/dev/null 2>&1; then
-        # Find and log processes with their command lines before killing them
+# Function to kill existing Python processes
+kill_python_processes() {
+    log_message "Stopping any existing Python processes..."
+    
+    TOTAL_PROCESSES_KILLED=0
+    
+    for py in python3.11 python3.10 python3.9 python3.8 python3 python; do
+        if command -v killall >/dev/null 2>&1; then
+            if killall "$py" 2>/dev/null; then
+                KILLED_COUNT=$(pgrep -c "$py" 2>/dev/null || echo 0)
+                TOTAL_PROCESSES_KILLED=$((TOTAL_PROCESSES_KILLED + KILLED_COUNT))
+            fi
+        elif command -v pkill >/dev/null 2>&1; then
+            KILLED_COUNT=$(pgrep -c "$py" 2>/dev/null || echo 0)
+            pkill -f "$py" 2>/dev/null
+            TOTAL_PROCESSES_KILLED=$((TOTAL_PROCESSES_KILLED + KILLED_COUNT))
+        fi
+        
+        # Also try pgrep/kill combination
         if command -v pgrep >/dev/null 2>&1; then
-            PYTHON_PIDS=$(pgrep -f "$PYTHON_CMD" 2>/dev/null)
-        else
-            PYTHON_PIDS=$(ps aux | grep "$PYTHON_CMD" | grep -v grep | awk '{print $2}' 2>/dev/null)
-        fi
-        
-        if [ -n "$PYTHON_PIDS" ]; then
-            log_message "Found $PYTHON_CMD processes:"
-            
-            # Show detailed process information with PID and script name
-            for pid in $PYTHON_PIDS; do
-                TOTAL_PROCESSES_FOUND=$((TOTAL_PROCESSES_FOUND + 1))
-                if command -v ps >/dev/null 2>&1; then
-                    # Get the command line for this PID
-                    PROCESS_CMD=$(ps -p "$pid" -o args= 2>/dev/null | head -1)
-                    if [ -n "$PROCESS_CMD" ]; then
-                        # Extract just the script name from the command line
-                        SCRIPT_NAME=$(echo "$PROCESS_CMD" | awk '{for(i=1;i<=NF;i++) if($i ~ /\.py$/) print $i}' | head -1)
-                        if [ -n "$SCRIPT_NAME" ]; then
-                            log_message "  PID: $pid - Script: $SCRIPT_NAME"
-                            PROCESSES_KILLED_LIST="$PROCESSES_KILLED_LIST\n• PID: \`$pid\` - Script: \`$SCRIPT_NAME\`"
-                        else
-                            # Fallback: show the Python command if no .py file found
-                            PYTHON_ONLY=$(echo "$PROCESS_CMD" | awk '{print $1}')
-                            log_message "  PID: $pid - Command: $PYTHON_ONLY"
-                            PROCESSES_KILLED_LIST="$PROCESSES_KILLED_LIST\n• PID: \`$pid\` - Command: \`$PYTHON_ONLY\`"
-                        fi
-                    else
-                        log_message "  PID: $pid - Command: $PYTHON_CMD (details unavailable)"
-                        PROCESSES_KILLED_LIST="$PROCESSES_KILLED_LIST\n• PID: \`$pid\` - Command: \`$PYTHON_CMD\`"
+            PIDS=$(pgrep -f "$py" 2>/dev/null)
+            if [ -n "$PIDS" ]; then
+                for pid in $PIDS; do
+                    if kill "$pid" 2>/dev/null; then
+                        TOTAL_PROCESSES_KILLED=$((TOTAL_PROCESSES_KILLED + 1))
+                        log_message "Killed Python process: $pid"
                     fi
-                else
-                    log_message "  PID: $pid - Command: $PYTHON_CMD"
-                    PROCESSES_KILLED_LIST="$PROCESSES_KILLED_LIST\n• PID: \`$pid\` - Command: \`$PYTHON_CMD\`"
-                fi
-            done
-            
-            # Use killall with SIGTERM (-15) first, then SIGKILL (-9) if needed
-            if command -v killall >/dev/null 2>&1; then
-                if killall -15 "$PYTHON_CMD" 2>/dev/null; then
-                    log_message "Sent SIGTERM to $PYTHON_CMD processes (PIDs: $PYTHON_PIDS)"
-                fi
-                sleep 2
-                # Check what's still running after SIGTERM
-                if command -v pgrep >/dev/null 2>&1; then
-                    REMAINING_PIDS=$(pgrep -f "$PYTHON_CMD" 2>/dev/null)
-                else
-                    REMAINING_PIDS=$(ps aux | grep "$PYTHON_CMD" | grep -v grep | awk '{print $2}' 2>/dev/null)
-                fi
-                
-                if [ -n "$REMAINING_PIDS" ]; then
-                    log_message "Stubborn processes still running, showing details before force kill:"
-                    for pid in $REMAINING_PIDS; do
-                        if command -v ps >/dev/null 2>&1; then
-                            PROCESS_CMD=$(ps -p "$pid" -o args= 2>/dev/null | head -1)
-                            SCRIPT_NAME=$(echo "$PROCESS_CMD" | awk '{for(i=1;i<=NF;i++) if($i ~ /\.py$/) print $i}' | head -1)
-                            if [ -n "$SCRIPT_NAME" ]; then
-                                log_message "  PID: $pid - Script: $SCRIPT_NAME (force killing)"
-                            else
-                                log_message "  PID: $pid - Command: $PYTHON_CMD (force killing)"
-                            fi
-                        fi
-                    done
-                    
-                    if killall -9 "$PYTHON_CMD" 2>/dev/null; then
-                        log_message "Force killed $PYTHON_CMD processes with SIGKILL (PIDs: $REMAINING_PIDS)"
-                    fi
-                else
-                    log_message "All $PYTHON_CMD processes terminated gracefully"
-                fi
-            else
-                # Fallback for systems without killall
-                if pkill -15 -f "$PYTHON_CMD" 2>/dev/null; then
-                    log_message "Sent SIGTERM to $PYTHON_CMD processes with pkill (PIDs: $PYTHON_PIDS)"
-                fi
-                sleep 2
-                # Check what's still running after SIGTERM
-                if command -v pgrep >/dev/null 2>&1; then
-                    REMAINING_PIDS=$(pgrep -f "$PYTHON_CMD" 2>/dev/null)
-                else
-                    REMAINING_PIDS=$(ps aux | grep "$PYTHON_CMD" | grep -v grep | awk '{print $2}' 2>/dev/null)
-                fi
-                
-                if [ -n "$REMAINING_PIDS" ]; then
-                    log_message "Stubborn processes still running, showing details before force kill:"
-                    for pid in $REMAINING_PIDS; do
-                        if command -v ps >/dev/null 2>&1; then
-                            PROCESS_CMD=$(ps -p "$pid" -o args= 2>/dev/null | head -1)
-                            SCRIPT_NAME=$(echo "$PROCESS_CMD" | awk '{for(i=1;i<=NF;i++) if($i ~ /\.py$/) print $i}' | head -1)
-                            if [ -n "$SCRIPT_NAME" ]; then
-                                log_message "  PID: $pid - Script: $SCRIPT_NAME (force killing)"
-                            else
-                                log_message "  PID: $pid - Command: $PYTHON_CMD (force killing)"
-                            fi
-                        fi
-                    done
-                    
-                    if pkill -9 -f "$PYTHON_CMD" 2>/dev/null; then
-                        log_message "Force killed $PYTHON_CMD processes with pkill SIGKILL (PIDs: $REMAINING_PIDS)"
-                    fi
-                else
-                    log_message "All $PYTHON_CMD processes terminated gracefully"
-                fi
+                done
             fi
-        else
-            log_message "No $PYTHON_CMD processes found to kill"
         fi
+    done
+    
+    sleep 2
+    
+    if [ $TOTAL_PROCESSES_KILLED -gt 0 ]; then
+        log_message "Python process cleanup completed - $TOTAL_PROCESSES_KILLED processes stopped"
+        send_notification "Stopped $TOTAL_PROCESSES_KILLED Python processes to prepare for clean deployment" "info"
+    else
+        log_message "Python process cleanup completed - no processes found"
     fi
-done
-
-# Send Discord notification about process cleanup
-if [ $TOTAL_PROCESSES_FOUND -gt 0 ]; then
-    send_notification "🔄 **Process Cleanup Completed**\n\n**Stopped $TOTAL_PROCESSES_FOUND Python processes:**$PROCESSES_KILLED_LIST\n\n✅ All processes terminated successfully" "info"
-    log_message "Python process cleanup completed - $TOTAL_PROCESSES_FOUND processes stopped"
-else
-    send_notification "ℹ️ **Process Cleanup**\n\nNo Python processes were running - clean environment detected" "info"
-    log_message "Python process cleanup completed - no processes found"
-fi
-
-# Set PATH for FreeBSD/Serv00 - include common locations
-export PATH="$HOME/.local/bin:$HOME/usr/local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
-
-# Set Python path for user-installed packages on FreeBSD/Serv00
-export PYTHONPATH="$HOME/.local/lib/python3.11/site-packages:$HOME/.local/lib/python3.10/site-packages:$HOME/.local/lib/python3.9/site-packages:$HOME/.local/lib/python3.8/site-packages:$PYTHONPATH"
-
-# Validate repository path
-if [ ! -d "$REPO_PATH" ]; then
-    ERROR_MSG="ERROR: Repository path does not exist: $REPO_PATH"
-    log_message "$ERROR_MSG"
-    send_email "Deployment Error - Invalid Path" "$ERROR_MSG"
-    send_notification "$ERROR_MSG" "error"
-    exit 1
-fi
-
-cd "$REPO_PATH" || {
-    ERROR_MSG="ERROR: Failed to change to repository directory"
-    log_message "$ERROR_MSG"
-    send_email "Deployment Error - Directory Access" "$ERROR_MSG"
-    send_notification "$ERROR_MSG" "error"
-    exit 1
 }
 
-# Check if it's a git repository
-if [ ! -d ".git" ]; then
-    ERROR_MSG="ERROR: Not a git repository: $REPO_PATH"
-    log_message "$ERROR_MSG"
-    send_email "Deployment Error - Not Git Repo" "$ERROR_MSG"
-    send_notification "$ERROR_MSG" "error"
-    exit 1
-fi
-
-# Configure git to use system certificates if needed
-git config --global http.sslCAinfo /etc/ssl/cert.pem 2>/dev/null || true
-git config --global http.sslverify true 2>/dev/null || true
-
-# Fetch latest changes
-log_message "Fetching latest changes from origin/$BRANCH"
-FETCH_OUTPUT=$(git fetch origin "$BRANCH" 2>&1)
-FETCH_EXIT_CODE=$?
-
-if [ $FETCH_EXIT_CODE -ne 0 ]; then
-    ERROR_MSG="ERROR: Failed to fetch from remote repository. Output: $FETCH_OUTPUT"
-    log_message "$ERROR_MSG"
-    send_email "Deployment Error - Fetch Failed" "$ERROR_MSG"
-    send_notification "Failed to fetch from remote repository" "error"
-    exit 1
-fi
-
-log_message "Fetch completed successfully"
-
-# Check if there are updates
-LOCAL_COMMIT=$(git rev-parse HEAD)
-REMOTE_COMMIT=$(git rev-parse "origin/$BRANCH" 2>/dev/null)
-
-if [ -z "$REMOTE_COMMIT" ]; then
-    ERROR_MSG="ERROR: Could not get remote commit hash"
-    log_message "$ERROR_MSG"
-    send_email "Deployment Error - Remote Commit" "$ERROR_MSG"
-    send_notification "$ERROR_MSG" "error"
-    exit 1
-fi
-
-if [ "$LOCAL_COMMIT" = "$REMOTE_COMMIT" ]; then
-    log_message "No updates available. Current commit: $LOCAL_COMMIT"
-    log_message "Smart deployment finished - no changes"
-    send_notification "No updates found. Repository is up to date.\nCommit: \`$LOCAL_COMMIT\`" "info"
-    exit 0
-fi
-
-log_message "Updates found. Proceeding with deployment..."
-log_message "Local commit:  $LOCAL_COMMIT"
-log_message "Remote commit: $REMOTE_COMMIT"
-
-# Create short commit hashes for notifications (POSIX compatible)
-LOCAL_COMMIT_SHORT=$(echo "$LOCAL_COMMIT" | cut -c1-8)
-REMOTE_COMMIT_SHORT=$(echo "$REMOTE_COMMIT" | cut -c1-8)
-
-# Send update notification
-COMMIT_MESSAGE_SHORT=$(git log --oneline -1 "origin/$BRANCH" 2>/dev/null)
-send_notification "Updates found! Starting deployment...\n**From:** \`$LOCAL_COMMIT_SHORT\`\n**To:** \`$REMOTE_COMMIT_SHORT\`\n**Latest commit:** $COMMIT_MESSAGE_SHORT" "info"
-
-# Get commit message for notification
-COMMIT_MESSAGE=$(git log --oneline -1 "origin/$BRANCH" 2>/dev/null | cut -d' ' -f2-)
-
-# Reset to clean state before pulling (removes any local changes)
-log_message "Resetting repository to clean state..."
-RESET_OUTPUT=$(git reset --hard HEAD 2>&1)
-RESET_EXIT_CODE=$?
-
-if [ $RESET_EXIT_CODE -eq 0 ]; then
-    log_message "Repository reset completed successfully"
-else
-    log_message "WARNING: Git reset failed. Output: $RESET_OUTPUT"
-    send_notification "⚠️ **Git Reset Warning**\n\nFailed to reset repository to clean state\nOutput: \`$RESET_OUTPUT\`\nContinuing with deployment..." "warning"
-fi
-
-# Pull changes
-log_message "Pulling changes from origin/$BRANCH"
-PULL_OUTPUT=$(git pull origin "$BRANCH" 2>&1)
-PULL_EXIT_CODE=$?
-
-if [ $PULL_EXIT_CODE -eq 0 ]; then
-    SUCCESS_MSG="Deployment completed successfully. Latest commit: $REMOTE_COMMIT"
-    if [ -n "$COMMIT_MESSAGE" ]; then
-        SUCCESS_MSG="$SUCCESS_MSG - $COMMIT_MESSAGE"
-    fi
+# Function to perform hard reset and clean pull
+clean_pull_repository() {
+    log_message "Performing clean repository update with hard reset..."
     
-    log_message "$SUCCESS_MSG"
-    
-    # Optional: Install Python dependencies if requirements.txt exists
-    if [ -f "requirements.txt" ]; then
-        log_message "Installing Python dependencies..."
-        
-        # Check if virtual environment exists and use it
-        if [ -f ".venv/bin/python" ]; then
-            log_message "Using virtual environment (.venv/bin/python)"
-            .venv/bin/python -m pip install --upgrade -r requirements.txt >> "$LOG_FILE" 2>&1
-            PIP_EXIT_CODE=$?
-        elif [ -f ".venv/Scripts/python.exe" ]; then
-            log_message "Using virtual environment (.venv/Scripts/python.exe)"
-            .venv/Scripts/python.exe -m pip install --upgrade -r requirements.txt >> "$LOG_FILE" 2>&1
-            PIP_EXIT_CODE=$?
-        else
-            # Try different Python versions available on Serv00
-            PIP_EXIT_CODE=1
-            for PYTHON_CMD in python3.11 python3.10 python3.9 python3.8 python3 python; do
-                if command -v "$PYTHON_CMD" >/dev/null 2>&1; then
-                    log_message "Trying to install dependencies with $PYTHON_CMD"
-                    "$PYTHON_CMD" -m pip install --user --upgrade -r requirements.txt >> "$LOG_FILE" 2>&1
-                    PIP_EXIT_CODE=$?
-                    if [ $PIP_EXIT_CODE -eq 0 ]; then
-                        log_message "Successfully installed dependencies with $PYTHON_CMD"
-                        break
-                    fi
-                fi
-            done
-        fi
-        
-        if [ $PIP_EXIT_CODE -ne 0 ]; then
-            log_message "WARNING: Failed to install Python dependencies"
-            send_notification "⚠️ Failed to install Python dependencies, but deployment continues" "warning"
-        else
-            log_message "Python dependencies installed successfully"
-        fi
-    fi
-    
-    # Optional: Set executable permissions if needed
-    if [ -f "run.py" ]; then
-        chmod +x run.py
-        log_message "Set executable permissions for run.py"
-    fi
-    
-    # Start the new Python process after successful deployment (Serv00 optimized)
-    start_localrunner() {
-        if [ ! -f "localRunner.py" ]; then
-            log_message "WARNING: localRunner.py not found, skipping process startup"
-            send_notification "⚠️ localRunner.py not found - skipping process startup" "warning"
-            return 1
-        fi
-        log_message "Starting new Python process with localRunner.py"
-        
-        # Serv00-specific: Ensure we're in the correct directory
-        CURRENT_DIR=$(pwd)
-        log_message "Current working directory: $CURRENT_DIR"
-        
-        # Serv00-specific: Check for common issues
-        log_message "Performing Serv00-specific checks..."
-        
-        # Check if we have enough disk space
-        if command -v df >/dev/null 2>&1; then
-            DISK_USAGE=$(df -h "$HOME" 2>/dev/null | tail -1 | awk '{print $5}' | sed 's/%//')
-            if [ -n "$DISK_USAGE" ] && [ "$DISK_USAGE" -gt 95 ]; then
-                log_message "WARNING: Disk usage is ${DISK_USAGE}% - this may cause issues"
-                send_notification "⚠️ **High Disk Usage Warning**\n\nDisk usage: ${DISK_USAGE}%\nThis may prevent process startup" "warning"
-            else
-                log_message "Disk usage check: OK (${DISK_USAGE}%)"
-            fi
-        fi
-        
-        # Check memory usage
-        if command -v free >/dev/null 2>&1; then
-            MEMORY_INFO=$(free -h 2>/dev/null | grep "Mem:" | awk '{print "Used: " $3 "/" $2}')
-            log_message "Memory usage: $MEMORY_INFO"
-        elif command -v top >/dev/null 2>&1; then
-            # FreeBSD/Serv00 alternative
-            MEMORY_INFO=$(top -n 1 2>/dev/null | grep "Mem:" | head -1)
-            log_message "Memory info: $MEMORY_INFO"
-        fi
-        
-        # Check if localRunner.py has correct permissions
-        if [ -r "localRunner.py" ]; then
-            log_message "localRunner.py permissions: OK (readable)"
-        else
-            log_message "ERROR: localRunner.py is not readable"
-            send_notification "❌ **Permission Error**\n\nlocalRunner.py is not readable\nCheck file permissions" "error"
-            exit 1
-        fi
-        
-        # Find the best Python version to use (Serv00 specific order)
-        PYTHON_TO_USE=""
-        for PYTHON_CMD in python3.11 python3.10 python3.9 python3.8 python3 python; do
-            if command -v "$PYTHON_CMD" >/dev/null 2>&1; then
-                PYTHON_VERSION=$("$PYTHON_CMD" --version 2>&1)
-                log_message "Found Python: $PYTHON_CMD ($PYTHON_VERSION)"
-                PYTHON_TO_USE="$PYTHON_CMD"
-                break
-            fi
-        done
-        
-        if [ -n "$PYTHON_TO_USE" ]; then        # Serv00-specific: Set up environment variables for better compatibility
-        export PYTHONUNBUFFERED=1
-        export PYTHONPATH="$CURRENT_DIR:$PYTHONPATH"
-        
-        # Serv00-specific: Make sure we're using the user's Python path
-        export PATH="$HOME/.local/bin:$PATH"
-        
-        # Create logs directory if it doesn't exist
-        mkdir -p "$HOME/logs" 2>/dev/null
-        
-        # Use absolute paths for better reliability on Serv00
-        LOG_PATH="$HOME/logs/localRunner.log"
-        SCRIPT_PATH="$CURRENT_DIR/localRunner.py"
-            
-            log_message "Starting localRunner.py with $PYTHON_TO_USE..."
-            log_message "Script path: $SCRIPT_PATH"
-            log_message "Log path: $LOG_PATH"
-            log_message "Python path: $PYTHONPATH"
-            
-            # Send Discord notification about process startup attempt
-            send_notification "🚀 **Starting New Process**\n\n• Script: \`localRunner.py\`\n• Python: \`$PYTHON_TO_USE\`\n• Working Dir: \`$CURRENT_DIR\`\n• Log: \`$LOG_PATH\`\n• Action: Starting in background with nohup" "info"
-            
-            # Test the environment before starting
-            log_message "Testing environment and dependencies before startup..."
-            
-            # Test if .env file exists and is readable
-            if [ -f "$CURRENT_DIR/.env" ]; then
-                log_message "✓ .env file found and readable"
-            else
-                log_message "❌ .env file missing or not readable"
-                send_notification "❌ **Startup Failed - Missing .env file**\n\n• Location: \`$CURRENT_DIR/.env\`\n• This file is required for localRunner.py" "error"
-                log_message "Skipping localRunner.py startup due to missing .env file"
-                continue
-            fi
-            
-            # Test required Python packages
-            log_message "Testing required Python packages..."
-            MISSING_PACKAGES=""
-            
-            for PACKAGE in "dotenv" "requests" "websocket" "pathlib"; do
-                if "$PYTHON_TO_USE" -c "import $PACKAGE" 2>/dev/null; then
-                    log_message "✓ Package $PACKAGE: OK"
-                else
-                    log_message "❌ Package $PACKAGE: MISSING"
-                    MISSING_PACKAGES="$MISSING_PACKAGES $PACKAGE"
-                fi
-            done
-            
-            if [ -n "$MISSING_PACKAGES" ]; then
-                log_message "Missing packages detected:$MISSING_PACKAGES"
-                log_message "Attempting to install missing packages..."
-                
-                # Try to install missing packages
-                for PACKAGE in $MISSING_PACKAGES; do
-                    PACKAGE_TO_INSTALL="$PACKAGE"
-                    # Map package names to pip package names
-                    case "$PACKAGE" in
-                        "dotenv") PACKAGE_TO_INSTALL="python-dotenv" ;;
-                        "websocket") PACKAGE_TO_INSTALL="websocket-client" ;;
-                    esac
-                    
-                    log_message "Installing $PACKAGE_TO_INSTALL..."
-                    if "$PYTHON_TO_USE" -m pip install --user "$PACKAGE_TO_INSTALL" >> "$LOG_FILE" 2>&1; then
-                        log_message "✓ Successfully installed $PACKAGE_TO_INSTALL"
-                    else
-                        log_message "❌ Failed to install $PACKAGE_TO_INSTALL"
-                        send_notification "❌ **Startup Failed - Package Installation**\n\n• Failed to install: \`$PACKAGE_TO_INSTALL\`\n• This package is required for localRunner.py" "error"
-                        log_message "Skipping localRunner.py startup due to failed package installation"
-                        continue 2  # Continue outer loop (skip this Python startup attempt)
-                    fi
-                done
-                
-                # Re-test packages after installation
-                log_message "Re-testing packages after installation..."
-                for PACKAGE in $MISSING_PACKAGES; do
-                    if "$PYTHON_TO_USE" -c "import $PACKAGE" 2>/dev/null; then
-                        log_message "✓ Package $PACKAGE: NOW OK"
-                    else
-                        log_message "❌ Package $PACKAGE: STILL MISSING"
-                        send_notification "❌ **Startup Failed - Package Still Missing**\n\n• Package: \`$PACKAGE\`\n• Installation failed or incomplete" "error"
-                        log_message "Skipping localRunner.py startup due to missing packages"
-                        continue 2  # Continue outer loop (skip this Python startup attempt)
-                    fi
-                done
-            fi
-            
-            # Test localRunner.py syntax
-            log_message "Testing localRunner.py syntax..."
-            SYNTAX_CHECK=$("$PYTHON_TO_USE" -m py_compile "$SCRIPT_PATH" 2>&1)
-            if [ $? -eq 0 ]; then
-                log_message "✓ localRunner.py syntax check: PASSED"
-            else
-                log_message "❌ localRunner.py syntax check: FAILED"
-                log_message "Syntax error: $SYNTAX_CHECK"
-                send_notification "❌ **Startup Failed - Syntax Error**\n\n• Script: \`localRunner.py\`\n• Error: \`$SYNTAX_CHECK\`" "error"
-                log_message "Skipping localRunner.py startup due to syntax error"
-                continue
-            fi
-            
-            # Test environment variables in .env file
-            log_message "Testing environment variables from .env file..."
-            ENV_TEST=$("$PYTHON_TO_USE" -c "
-import os
-from dotenv import load_dotenv
-load_dotenv()
-
-required_vars = ['USER', 'PASSWORD', 'WEBHOOK', 'CHATID', 'TELEGRAMTOKEN', 'GITHUB_TOKEN', 'CJ_OWNER', 'CJ_REPO', 'CJ_FILE']
-missing_vars = []
-
-for var in required_vars:
-    if not os.getenv(var):
-        missing_vars.append(var)
-
-if missing_vars:
-    print(f'MISSING: {missing_vars}')
-    exit(1)
-else:
-    print('ALL_OK')
-" 2>&1)
-            
-            if echo "$ENV_TEST" | grep -q "ALL_OK"; then
-                log_message "✓ Environment variables test: PASSED"
-            else
-                log_message "❌ Environment variables test: FAILED"
-                log_message "Missing variables: $ENV_TEST"
-                send_notification "❌ **Startup Failed - Missing Environment Variables**\n\n• Missing: \`$ENV_TEST\`\n• Check your .env file" "error"
-                log_message "Skipping localRunner.py startup due to missing environment variables"
-                continue
-            fi
-            
-            # Test cookies file
-            log_message "Testing cookies file availability..."
-            COOKIES_TEST=$("$PYTHON_TO_USE" -c "
-import os
-from dotenv import load_dotenv
-from pathlib import Path
-load_dotenv()
-
-cookies_path = Path.cwd() / 'cookies'
-if not cookies_path.exists():
-    print('MISSING_COOKIES_DIR')
-    exit(1)
-
-cookies_file = os.getenv('CJ_FILE')
-if not cookies_file:
-    print('MISSING_CJ_FILE_VAR')
-    exit(1)
-
-final_path = cookies_path / cookies_file
-if not final_path.exists():
-    print(f'MISSING_COOKIES_FILE: {final_path}')
-    exit(1)
-
-print('COOKIES_OK')
-" 2>&1)
-            
-            if echo "$COOKIES_TEST" | grep -q "COOKIES_OK"; then
-                log_message "✓ Cookies file test: PASSED"
-            else
-                log_message "❌ Cookies file test: FAILED"
-                log_message "Cookies issue: $COOKIES_TEST"
-                send_notification "❌ **Startup Failed - Cookies File Issue**\n\n• Issue: \`$COOKIES_TEST\`\n• Check cookies directory and CJ_FILE setting" "error"
-                log_message "Skipping localRunner.py startup due to cookies file issue"
-                continue
-            fi
-            
-            log_message "✅ All pre-startup tests passed successfully!"
-            
-            # Start with explicit paths and better error handling
-            cd "$CURRENT_DIR" && nohup "$PYTHON_TO_USE" "$SCRIPT_PATH" > "$LOG_PATH" 2>&1 &
-            NEW_PID=$!
-            
-            log_message "Process started with PID: $NEW_PID"
-            
-            # Enhanced verification with multiple checks
-            sleep 5  # Give more time for process to start and initialize
-            
-            # Check if process is still running
-            if kill -0 "$NEW_PID" 2>/dev/null; then
-                log_message "✓ Successfully started new process:"
-                log_message "  PID: $NEW_PID - Script: localRunner.py"
-                log_message "  Python interpreter: $PYTHON_TO_USE"
-                log_message "  Output log: $LOG_PATH"
-                log_message "  Working directory: $CURRENT_DIR"
-                log_message "  Process status: Running"
-                
-                # Get additional process info if possible
-                PROCESS_DETAILS=""
-                if command -v ps >/dev/null 2>&1; then
-                    PROCESS_INFO=$(ps -p "$NEW_PID" -o pid,ppid,cmd 2>/dev/null | tail -1)
-                    if [ -n "$PROCESS_INFO" ]; then
-                        log_message "  Full process info: $PROCESS_INFO"
-                        PROCESS_DETAILS="\n• Full command: \`$PROCESS_INFO\`"
-                    fi
-                    
-                    # Also show the working directory if possible (Linux-specific, skip on FreeBSD)
-                    if [ -d "/proc/$NEW_PID" ] && [ -r "/proc/$NEW_PID/cwd" ]; then
-                        PROCESS_CWD=$(readlink "/proc/$NEW_PID/cwd" 2>/dev/null)
-                        if [ -n "$PROCESS_CWD" ]; then
-                            log_message "  Working directory: $PROCESS_CWD"
-                            PROCESS_DETAILS="$PROCESS_DETAILS\n• Working dir: \`$PROCESS_CWD\`"
-                        fi
-                    elif command -v lsof >/dev/null 2>&1; then
-                        # FreeBSD alternative using lsof
-                        PROCESS_CWD=$(lsof -p "$NEW_PID" -d cwd 2>/dev/null | tail -1 | awk '{print $NF}')
-                        if [ -n "$PROCESS_CWD" ]; then
-                            log_message "  Working directory: $PROCESS_CWD"
-                            PROCESS_DETAILS="$PROCESS_DETAILS\n• Working dir: \`$PROCESS_CWD\`"
-                        fi
-                    fi
-                fi
-                
-                # Check if log file is being written to
-                if [ -f "$LOG_PATH" ]; then
-                    LOG_SIZE=$(wc -c < "$LOG_PATH" 2>/dev/null || echo "0")
-                    log_message "  Log file size: $LOG_SIZE bytes"
-                    
-                    # Show first few lines of log for debugging
-                    if [ "$LOG_SIZE" -gt 0 ]; then
-                        log_message "  First lines of log:"
-                        head -5 "$LOG_PATH" 2>/dev/null | while read -r line; do
-                            log_message "    $line"
-                        done
-                    fi
-                else
-                    log_message "  WARNING: Log file not created yet"
-                fi
-                
-                # Send successful startup notification to Discord
-                send_notification "✅ **Process Started Successfully**\n\n• PID: \`$NEW_PID\`\n• Script: \`localRunner.py\`\n• Python: \`$PYTHON_TO_USE\`\n• Log: \`$LOG_PATH\`\n• Working Dir: \`$CURRENT_DIR\`\n• Status: **Running**$PROCESS_DETAILS" "success"
-                
-                # Enhanced success message with process info
-                SUCCESS_MSG="$SUCCESS_MSG\n\n🐍 **Process Started:**\n• PID: \`$NEW_PID\`\n• Script: \`localRunner.py\`\n• Python: \`$PYTHON_TO_USE\`\n• Log: \`$LOG_PATH\`\n• Status: Running"
-            else
-                log_message "✗ Failed to start localRunner.py - process died immediately"
-                log_message "  PID was: $NEW_PID - Script: localRunner.py (failed)"
-                
-                # Check for common issues and provide debugging info
-                log_message "Debugging information:"
-                log_message "  Python executable: $PYTHON_TO_USE"
-                log_message "  Script path: $SCRIPT_PATH"
-                log_message "  Current directory: $CURRENT_DIR"
-                log_message "  Log path: $LOG_PATH"
-                
-                # Check if Python executable works
-                if "$PYTHON_TO_USE" --version >/dev/null 2>&1; then
-                    log_message "  Python executable test: PASSED"
-                else
-                    log_message "  Python executable test: FAILED"
-                fi
-                
-                # Check if script exists and is readable
-                if [ -r "$SCRIPT_PATH" ]; then
-                    log_message "  Script file test: PASSED (readable)"
-                else
-                    log_message "  Script file test: FAILED (not readable or missing)"
-                fi
-                
-                # Show log file content if it exists
-                if [ -f "$LOG_PATH" ]; then
-                    LOG_SIZE=$(wc -c < "$LOG_PATH" 2>/dev/null || echo "0")
-                    log_message "  Log file created, size: $LOG_SIZE bytes"
-                    if [ "$LOG_SIZE" -gt 0 ]; then
-                        log_message "  Log file contents:"
-                        cat "$LOG_PATH" 2>/dev/null | while read -r line; do
-                            log_message "    $line"
-                        done
-                    fi
-                else
-                    log_message "  Log file not created"
-                fi
-                
-                # Try a simple test run to see what happens
-                log_message "  Attempting test run..."
-                TEST_OUTPUT=$("$PYTHON_TO_USE" -c "print('Python test successful'); import sys; print('Python version:', sys.version)" 2>&1)
-                log_message "  Python test output: $TEST_OUTPUT"
-                
-                # Send failure notification to Discord
-                send_notification "❌ **Process Startup Failed**\n\n• Script: \`localRunner.py\`\n• Python: \`$PYTHON_TO_USE\`\n• PID was: \`$NEW_PID\`\n• Issue: Process died immediately after startup\n• Check log: \`$LOG_PATH\`\n• Working Dir: \`$CURRENT_DIR\`" "error"
-                
-                # Try alternative startup methods for Serv00
-                log_message "Attempting alternative startup methods..."
-                
-                # Method 1: Try without nohup but with explicit output redirection
-                log_message "Method 1: Trying without nohup but with output redirection..."
-                cd "$CURRENT_DIR" && "$PYTHON_TO_USE" "$SCRIPT_PATH" > "$LOG_PATH" 2>&1 &
-                ALT_PID=$!
-                sleep 3
-                if kill -0 "$ALT_PID" 2>/dev/null; then
-                    log_message "✓ Alternative method 1 successful (PID: $ALT_PID)"
-                    send_notification "✅ **Process Started with Alternative Method 1**\n\n• PID: \`$ALT_PID\`\n• Method: Direct background execution\n• Script: \`localRunner.py\`" "success"
-                    SUCCESS_MSG="$SUCCESS_MSG\n\n🐍 **Process Started (Method 1):**\n• PID: \`$ALT_PID\`\n• Script: \`localRunner.py\`\n• Python: \`$PYTHON_TO_USE\`\n• Log: \`$LOG_PATH\`\n• Status: Running"
-                else
-                    log_message "✗ Alternative method 1 failed"
-                    
-                    # Show what happened in the log
-                    if [ -f "$LOG_PATH" ]; then
-                        log_message "Method 1 error log:"
-                        tail -10 "$LOG_PATH" 2>/dev/null | while read -r line; do
-                            log_message "  $line"
-                        done
-                    fi
-                    
-                    # Method 2: Try with screen if available
-                    if command -v screen >/dev/null 2>&1; then
-                        log_message "Method 2: Trying with screen session..."
-                        screen -dmS "miner_session" "$PYTHON_TO_USE" "$SCRIPT_PATH"
-                        sleep 3
-                        
-                        # Check if screen session exists
-                        if screen -list | grep -q "miner_session"; then
-                            # Find the PID of the Python process
-                            if command -v pgrep >/dev/null 2>&1; then
-                                SCREEN_PID=$(pgrep -f "localRunner.py" 2>/dev/null | tail -1)
-                            else
-                                SCREEN_PID=$(ps aux | grep "localRunner.py" | grep -v grep | awk '{print $2}' | tail -1)
-                            fi
-                            
-                            if [ -n "$SCREEN_PID" ] && kill -0 "$SCREEN_PID" 2>/dev/null; then
-                                log_message "✓ Alternative method 2 successful with screen (PID: $SCREEN_PID)"
-                                send_notification "✅ **Process Started with Screen**\n\n• PID: \`$SCREEN_PID\`\n• Method: Screen session\n• Session: \`miner_session\`\n• Script: \`localRunner.py\`" "success"
-                                SUCCESS_MSG="$SUCCESS_MSG\n\n🐍 **Process Started (Screen):**\n• PID: \`$SCREEN_PID\`\n• Session: \`miner_session\`\n• Script: \`localRunner.py\`\n• Status: Running"
-                            else
-                                log_message "✗ Alternative method 2 failed - screen session created but process not running"
-                                screen -S "miner_session" -X quit 2>/dev/null  # Clean up
-                            fi
-                        else
-                            log_message "✗ Alternative method 2 failed - could not create screen session"
-                        fi
-                    else
-                        log_message "Screen not available, skipping method 2"
-                    fi
-                    
-                    # Method 3: Try simple synchronous test to see what's wrong
-                    log_message "Method 3: Running synchronous test to diagnose issues..."
-                    cd "$CURRENT_DIR"
-                    
-                    # Create a test log for synchronous run
-                    TEST_LOG="$HOME/logs/localRunner_test.log"
-                    log_message "Running synchronous test, output will be in: $TEST_LOG"
-                    
-                    # Run synchronously with timeout to see what happens (FreeBSD compatible)
-                    if command -v timeout >/dev/null 2>&1; then
-                        # GNU timeout
-                        SYNC_OUTPUT=$(timeout 30 "$PYTHON_TO_USE" "$SCRIPT_PATH" 2>&1)
-                        SYNC_EXIT_CODE=$?
-                    elif command -v gtimeout >/dev/null 2>&1; then
-                        # GNU timeout on FreeBSD (if installed)
-                        SYNC_OUTPUT=$(gtimeout 30 "$PYTHON_TO_USE" "$SCRIPT_PATH" 2>&1)
-                        SYNC_EXIT_CODE=$?
-                    else
-                        # Fallback for FreeBSD/Serv00 without timeout command
-                        SYNC_OUTPUT=$("$PYTHON_TO_USE" "$SCRIPT_PATH" 2>&1 &
-                        SYNC_PID=$!
-                        sleep 10
-                        if kill -0 "$SYNC_PID" 2>/dev/null; then
-                            kill "$SYNC_PID" 2>/dev/null
-                            wait "$SYNC_PID" 2>/dev/null
-                            echo "Process was running but killed after 10 seconds for testing"
-                        else
-                            wait "$SYNC_PID" 2>/dev/null
-                        fi)
-                        SYNC_EXIT_CODE=$?
-                    fi
-                    
-                    echo "$SYNC_OUTPUT" > "$TEST_LOG"
-                    log_message "Synchronous test completed with exit code: $SYNC_EXIT_CODE"
-                    log_message "Test output (first 20 lines):"
-                    echo "$SYNC_OUTPUT" | head -20 | while read -r line; do
-                        log_message "  $line"
-                    done
-                    
-                    # Analyze the output
-                    if echo "$SYNC_OUTPUT" | grep -q "Everything is OK, starting run.py"; then
-                        log_message "✓ localRunner.py initialization successful, issue might be with run.py"
-                        send_notification "⚠️ **Partial Success - localRunner.py starts but issue with run.py**\n\n• localRunner.py: ✅ Initialized successfully\n• run.py: ❌ May have issues\n• Check: \`$TEST_LOG\`" "warning"
-                    elif echo "$SYNC_OUTPUT" | grep -q "ModuleNotFoundError\|ImportError"; then
-                        MISSING_MODULE=$(echo "$SYNC_OUTPUT" | grep -o "No module named '[^']*'" | head -1)
-                        log_message "❌ Missing Python module detected: $MISSING_MODULE"
-                        send_notification "❌ **Startup Failed - Missing Python Module**\n\n• Error: \`$MISSING_MODULE\`\n• Action: Install missing dependencies\n• Check: \`$TEST_LOG\`" "error"
-                    elif echo "$SYNC_OUTPUT" | grep -q "environment variable is not defined"; then
-                        MISSING_ENV=$(echo "$SYNC_OUTPUT" | grep -o "[A-Z_]* environment variable is not defined" | head -1)
-                        log_message "❌ Missing environment variable: $MISSING_ENV"
-                        send_notification "❌ **Startup Failed - Missing Environment Variable**\n\n• Error: \`$MISSING_ENV\`\n• Action: Check .env file\n• Check: \`$TEST_LOG\`" "error"
-                    elif echo "$SYNC_OUTPUT" | grep -q "FileNotFoundError"; then
-                        MISSING_FILE=$(echo "$SYNC_OUTPUT" | grep -o "FileNotFoundError: [^\\n]*" | head -1)
-                        log_message "❌ Missing file detected: $MISSING_FILE"
-                        send_notification "❌ **Startup Failed - Missing File**\n\n• Error: \`$MISSING_FILE\`\n• Action: Check file paths\n• Check: \`$TEST_LOG\`" "error"
-                    else
-                        log_message "❌ Unknown error in localRunner.py"
-                        ERROR_SUMMARY=$(echo "$SYNC_OUTPUT" | tail -5 | tr '\n' ' ')
-                        send_notification "❌ **Startup Failed - Unknown Error**\n\n• Last output: \`$ERROR_SUMMARY\`\n• Full log: \`$TEST_LOG\`" "error"
-                    fi
-            fi
-        else
-            log_message "WARNING: No Python interpreter found to start localRunner.py"
-            send_notification "⚠️ **Process Startup Skipped**\n\n• Script: \`localRunner.py\`\n• Issue: No Python interpreter found\n• Available versions checked: python3.11, python3.10, python3.9, python3.8, python3, python" "warning"
-        fi
+    # Change to repository directory
+    cd "$REPO_PATH" || {
+        log_message "ERROR: Failed to change to repository directory: $REPO_PATH"
+        return 1
     }
     
-    # Call the function to start localRunner.py
-    start_localrunner
+    # Check if this is a git repository
+    if [ ! -d ".git" ]; then
+        log_message "ERROR: Not a git repository: $REPO_PATH"
+        return 1
+    fi
     
-    # If the main startup method fails, try the simple startup script as fallback
-    if [ ! $? -eq 0 ] && [ -f "start_simple.sh" ]; then
-        log_message "Main startup method failed, trying simple startup script as fallback..."
-        chmod +x start_simple.sh 2>/dev/null
-        if ./start_simple.sh >> "$LOG_FILE" 2>&1; then
-            log_message "✓ Simple startup script succeeded"
-            send_notification "✅ **Process Started with Fallback Method**\n\n• Method: Simple startup script\n• Script: \`start_simple.sh\`\n• Check logs for details" "success"
+    # Configure git settings for better compatibility
+    git config --global http.sslverify true 2>/dev/null || true
+    
+    # Show current status before cleanup
+    log_message "Current repository status:"
+    CURRENT_COMMIT=$(git rev-parse HEAD 2>/dev/null)
+    CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
+    DIRTY_FILES=$(git status --porcelain 2>/dev/null | wc -l)
+    
+    log_message "  Current branch: $CURRENT_BRANCH"
+    log_message "  Current commit: $CURRENT_COMMIT"
+    log_message "  Dirty files: $DIRTY_FILES"
+    
+    if [ "$DIRTY_FILES" -gt 0 ]; then
+        log_message "  Uncommitted changes detected - will be discarded!"
+        git status --short 2>/dev/null | while read -r line; do
+            log_message "    $line"
+        done
+        
+        send_notification "⚠️ **Uncommitted Changes Detected**\n\nThe following changes will be **PERMANENTLY LOST**:\n\n$(git status --short 2>/dev/null | head -10 | sed 's/^/• /')\n\n**Continuing with hard reset in 5 seconds...**" "warning"
+        sleep 5
+    fi
+    
+    # STEP 1: Clean working directory (remove untracked files)
+    log_message "STEP 1: Cleaning untracked files and directories..."
+    CLEAN_OUTPUT=$(git clean -fd 2>&1)
+    CLEAN_EXIT_CODE=$?
+    
+    if [ $CLEAN_EXIT_CODE -eq 0 ]; then
+        log_message "✅ Working directory cleaned successfully"
+        if [ -n "$CLEAN_OUTPUT" ]; then
+            log_message "Removed files/directories: $CLEAN_OUTPUT"
+        fi
+    else
+        log_message "⚠️ Warning: Git clean failed: $CLEAN_OUTPUT"
+    fi
+    
+    # STEP 2: Hard reset local changes
+    log_message "STEP 2: Performing HARD RESET to discard all local changes..."
+    RESET_OUTPUT=$(git reset --hard HEAD 2>&1)
+    RESET_EXIT_CODE=$?
+    
+    if [ $RESET_EXIT_CODE -eq 0 ]; then
+        log_message "✅ Hard reset completed successfully"
+        send_notification "🔄 **Hard Reset Completed**\n\nAll local changes have been discarded\nRepository is now in clean state" "reset"
+    else
+        log_message "❌ Hard reset failed: $RESET_OUTPUT"
+        send_notification "❌ **Hard Reset Failed**\n\nError: $RESET_OUTPUT" "error"
+        return 1
+    fi
+    
+    # STEP 3: Fetch latest changes from remote
+    log_message "STEP 3: Fetching latest changes from origin/$BRANCH..."
+    FETCH_OUTPUT=$(git fetch origin "$BRANCH" 2>&1)
+    FETCH_EXIT_CODE=$?
+    
+    if [ $FETCH_EXIT_CODE -ne 0 ]; then
+        log_message "❌ Git fetch failed: $FETCH_OUTPUT"
+        send_notification "❌ **Fetch Failed**\n\nError: $FETCH_OUTPUT" "error"
+        return 1
+    fi
+    
+    log_message "✅ Fetch completed successfully"
+    
+    # STEP 4: Check if there are updates available
+    REMOTE_COMMIT=$(git rev-parse "origin/$BRANCH" 2>/dev/null)
+    
+    if [ -z "$REMOTE_COMMIT" ]; then
+        log_message "❌ Could not get remote commit hash"
+        return 1
+    fi
+    
+    if [ "$CURRENT_COMMIT" = "$REMOTE_COMMIT" ]; then
+        log_message "ℹ️ No updates available. Repository is already up to date"
+        log_message "Current commit: $CURRENT_COMMIT"
+        send_notification "ℹ️ **No Updates Available**\n\nRepository is already up to date\nCommit: \`$(echo "$CURRENT_COMMIT" | cut -c1-8)\`" "info"
+        return 2  # Special return code for "no updates"
+    fi
+    
+    # STEP 5: Show what will be updated
+    log_message "STEP 4: Updates found! Preparing to pull changes..."
+    log_message "  From: $CURRENT_COMMIT"
+    log_message "  To:   $REMOTE_COMMIT"
+    
+    # Get commit message and file changes
+    COMMIT_COUNT=$(git rev-list --count "$CURRENT_COMMIT..$REMOTE_COMMIT" 2>/dev/null || echo "unknown")
+    LATEST_COMMIT_MSG=$(git log --oneline -1 "origin/$BRANCH" 2>/dev/null || echo "Unable to get commit message")
+    
+    log_message "  Commits to pull: $COMMIT_COUNT"
+    log_message "  Latest commit: $LATEST_COMMIT_MSG"
+    
+    # Show files that will be changed
+    FILES_CHANGED=$(git diff --name-only "$CURRENT_COMMIT" "origin/$BRANCH" 2>/dev/null | wc -l)
+    log_message "  Files to be updated: $FILES_CHANGED"
+    
+    if [ "$FILES_CHANGED" -gt 0 ] && [ "$FILES_CHANGED" -lt 20 ]; then
+        log_message "  Changed files:"
+        git diff --name-only "$CURRENT_COMMIT" "origin/$BRANCH" 2>/dev/null | while read -r file; do
+            log_message "    - $file"
+        done
+    fi
+    
+    send_notification "🔄 **Updates Found - Starting Pull**\n\n• Commits: $COMMIT_COUNT\n• Files: $FILES_CHANGED\n• Latest: $LATEST_COMMIT_MSG\n• From: \`$(echo "$CURRENT_COMMIT" | cut -c1-8)\`\n• To: \`$(echo "$REMOTE_COMMIT" | cut -c1-8)\`" "info"
+    
+    # STEP 6: Force pull from remote (this will always succeed after hard reset)
+    log_message "STEP 5: Pulling changes from origin/$BRANCH..."
+    PULL_OUTPUT=$(git pull origin "$BRANCH" 2>&1)
+    PULL_EXIT_CODE=$?
+    
+    if [ $PULL_EXIT_CODE -eq 0 ]; then
+        NEW_COMMIT=$(git rev-parse HEAD 2>/dev/null)
+        log_message "✅ Pull completed successfully!"
+        log_message "New commit: $NEW_COMMIT"
+        
+        # Verify we got the expected commit
+        if [ "$NEW_COMMIT" = "$REMOTE_COMMIT" ]; then
+            log_message "✅ Repository successfully updated to latest remote commit"
+            send_notification "✅ **Repository Updated Successfully**\n\n• New commit: \`$(echo "$NEW_COMMIT" | cut -c1-8)\`\n• Files updated: $FILES_CHANGED\n• Commits pulled: $COMMIT_COUNT" "info"
+            return 0
         else
-            log_message "✗ Simple startup script also failed"
-            send_notification "❌ **All Startup Methods Failed**\n\n• Main method: Failed\n• Fallback method: Failed\n• Check logs for details" "error"
+            log_message "⚠️ Warning: Unexpected commit after pull"
+            log_message "Expected: $REMOTE_COMMIT"
+            log_message "Got: $NEW_COMMIT"
+            return 1
+        fi
+    else
+        log_message "❌ Pull failed: $PULL_OUTPUT"
+        send_notification "❌ **Pull Failed**\n\nError: $PULL_OUTPUT" "error"
+        return 1
+    fi
+}
+
+# Function to install/update Python dependencies
+update_dependencies() {
+    log_message "Checking and updating Python dependencies..."
+    
+    if [ ! -f "requirements.txt" ]; then
+        log_message "No requirements.txt found, skipping dependency installation"
+        return 0
+    fi
+    
+    # Find Python interpreter
+    PYTHON_CMD=$(find_python)
+    if [ -z "$PYTHON_CMD" ]; then
+        log_message "ERROR: No Python interpreter found for dependency installation"
+        return 1
+    fi
+    
+    log_message "Using Python interpreter: $PYTHON_CMD"
+    
+    # Check if virtual environment exists
+    if [ -f ".venv/bin/python" ]; then
+        log_message "Using virtual environment: .venv/bin/python"
+        PYTHON_CMD=".venv/bin/python"
+    elif [ -f ".venv/Scripts/python.exe" ]; then
+        log_message "Using virtual environment: .venv/Scripts/python.exe"
+        PYTHON_CMD=".venv/Scripts/python.exe"
+    else
+        log_message "No virtual environment found, using system Python with --user flag"
+    fi
+    
+    # Install/update dependencies
+    log_message "Installing/updating Python dependencies..."
+    if echo "$PYTHON_CMD" | grep -q "\.venv"; then
+        # Virtual environment - no --user flag needed
+        INSTALL_OUTPUT=$("$PYTHON_CMD" -m pip install --upgrade -r requirements.txt 2>&1)
+    else
+        # System Python - use --user flag
+        INSTALL_OUTPUT=$("$PYTHON_CMD" -m pip install --user --upgrade -r requirements.txt 2>&1)
+    fi
+    INSTALL_EXIT_CODE=$?
+    
+    if [ $INSTALL_EXIT_CODE -eq 0 ]; then
+        log_message "✅ Python dependencies updated successfully"
+        # Count how many packages were processed
+        PACKAGES_COUNT=$(echo "$INSTALL_OUTPUT" | grep -c "Requirement already satisfied\|Successfully installed\|Collecting" 2>/dev/null || echo "unknown")
+        send_notification "✅ **Dependencies Updated**\n\nPackages processed: $PACKAGES_COUNT\nPython: \`$PYTHON_CMD\`" "info"
+        return 0
+    else
+        log_message "❌ Failed to update Python dependencies"
+        log_message "Error: $INSTALL_OUTPUT"
+        send_notification "❌ **Dependency Update Failed**\n\nError: \`$(echo "$INSTALL_OUTPUT" | head -3 | tr '\n' ' ')\`" "error"
+        return 1
+    fi
+}
+
+# Function to start localRunner.py with enhanced error handling
+start_localrunner() {
+    log_message "Starting localRunner.py..."
+    
+    # Check if localRunner.py exists
+    if [ ! -f "localRunner.py" ]; then
+        log_message "ERROR: localRunner.py not found in $REPO_PATH"
+        send_notification "❌ **Startup Failed**\n\nlocalRunner.py not found" "error"
+        return 1
+    fi
+    
+    # Check if .env file exists
+    if [ ! -f ".env" ]; then
+        log_message "ERROR: .env file not found"
+        send_notification "❌ **Startup Failed**\n\n.env file not found" "error"
+        return 1
+    fi
+    
+    # Find Python interpreter
+    PYTHON_CMD=$(find_python)
+    if [ -z "$PYTHON_CMD" ]; then
+        log_message "ERROR: No Python interpreter found"
+        send_notification "❌ **Startup Failed**\n\nNo Python interpreter found" "error"
+        return 1
+    fi
+    
+    log_message "Using Python interpreter: $PYTHON_CMD"
+    
+    # Try to install python-dotenv if missing
+    if ! "$PYTHON_CMD" -c "import dotenv" 2>/dev/null; then
+        log_message "Installing python-dotenv..."
+        if echo "$PYTHON_CMD" | grep -q "\.venv"; then
+            "$PYTHON_CMD" -m pip install python-dotenv >> "$LOG_FILE" 2>&1
+        else
+            "$PYTHON_CMD" -m pip install --user python-dotenv >> "$LOG_FILE" 2>&1
         fi
     fi
     
-    # Send success notifications
-    if [ "$SEND_EMAIL_ON_SUCCESS" = "true" ]; then
-        send_email "Deployment Success" "$SUCCESS_MSG"
+    # Set up log file for localRunner
+    LOCAL_LOG="$HOME/logs/localRunner.log"
+    
+    # Enhanced startup with multiple methods and better error handling
+    START_SUCCESS=0
+    
+    # Method 1: nohup (most reliable for long-running processes)
+    log_message "Attempting to start with nohup..."
+    nohup "$PYTHON_CMD" localRunner.py > "$LOCAL_LOG" 2>&1 &
+    PID1=$!
+    sleep 3
+    
+    if kill -0 "$PID1" 2>/dev/null; then
+        log_message "✅ SUCCESS: Process started with nohup (PID: $PID1)"
+        START_SUCCESS=1
+        
+        # Verify it's actually running properly by checking log
+        if [ -f "$LOCAL_LOG" ]; then
+            sleep 2  # Give it a moment to write to log
+            LOG_SIZE=$(wc -c < "$LOCAL_LOG" 2>/dev/null || echo "0")
+            if [ "$LOG_SIZE" -gt 0 ]; then
+                log_message "Process is generating output (log size: $LOG_SIZE bytes)"
+                log_message "First few lines of log:"
+                head -5 "$LOCAL_LOG" 2>/dev/null | while read -r line; do
+                    log_message "  $line"
+                done
+            fi
+        fi
+        
+        send_notification "✅ **Process Started Successfully**\n\n• PID: \`$PID1\`\n• Method: nohup\n• Script: localRunner.py\n• Log: $LOCAL_LOG\n• Python: \`$PYTHON_CMD\`" "success"
+        return 0
+    else
+        log_message "Method 1 (nohup) failed"
+        
+        # Method 2: Direct background
+        log_message "Attempting direct background startup..."
+        "$PYTHON_CMD" localRunner.py > "$LOCAL_LOG" 2>&1 &
+        PID2=$!
+        sleep 3
+        
+        if kill -0 "$PID2" 2>/dev/null; then
+            log_message "✅ SUCCESS: Process started directly (PID: $PID2)"
+            START_SUCCESS=1
+            send_notification "✅ **Process Started Successfully**\n\n• PID: \`$PID2\`\n• Method: direct background\n• Script: localRunner.py" "success"
+            return 0
+        else
+            log_message "Method 2 (direct) failed"
+            
+            # Method 3: Screen (if available)
+            if command -v screen >/dev/null 2>&1; then
+                log_message "Attempting screen session startup..."
+                screen -dmS miner_session "$PYTHON_CMD" localRunner.py
+                sleep 3
+                
+                if screen -list | grep -q miner_session; then
+                    log_message "✅ SUCCESS: Process started with screen"
+                    START_SUCCESS=1
+                    send_notification "✅ **Process Started Successfully**\n\n• Method: screen session\n• Session: miner_session\n• Script: localRunner.py" "success"
+                    return 0
+                else
+                    log_message "Method 3 (screen) failed"
+                fi
+            fi
+        fi
     fi
-    send_notification "$SUCCESS_MSG" "success"
     
-    log_message "Smart deployment finished successfully"
-else
-    ERROR_MSG="ERROR: Deployment failed. Pull output: $PULL_OUTPUT"
-    log_message "$ERROR_MSG"
+    # If all methods failed, show diagnostic information
+    if [ $START_SUCCESS -eq 0 ]; then
+        log_message "❌ All startup methods failed"
+        
+        # Show error details from log file
+        if [ -f "$LOCAL_LOG" ]; then
+            log_message "Error log contents (last 10 lines):"
+            tail -10 "$LOCAL_LOG" 2>/dev/null | while read -r line; do
+                log_message "  $line"
+            done
+            
+            # Try to identify common issues
+            if grep -q "ModuleNotFoundError\|ImportError" "$LOCAL_LOG" 2>/dev/null; then
+                ERROR_TYPE="Missing Python modules"
+            elif grep -q "environment variable" "$LOCAL_LOG" 2>/dev/null; then
+                ERROR_TYPE="Missing environment variables"
+            elif grep -q "FileNotFoundError" "$LOCAL_LOG" 2>/dev/null; then
+                ERROR_TYPE="Missing files"
+            else
+                ERROR_TYPE="Unknown error"
+            fi
+            
+            send_notification "❌ **Process Startup Failed**\n\n• Error type: $ERROR_TYPE\n• Check log: $LOCAL_LOG\n• All startup methods failed" "error"
+        else
+            send_notification "❌ **Process Startup Failed**\n\n• No log file created\n• All startup methods failed\n• Check Python installation and permissions" "error"
+        fi
+        
+        return 1
+    fi
+}
+
+# Function to check if script is already running
+check_lock() {
+    if [ -f "$LOCK_FILE" ]; then
+        LOCK_PID=$(cat "$LOCK_FILE" 2>/dev/null)
+        if [ -n "$LOCK_PID" ] && kill -0 "$LOCK_PID" 2>/dev/null; then
+            log_message "Script is already running (PID: $LOCK_PID)"
+            exit 1
+        else
+            log_message "Removing stale lock file"
+            rm -f "$LOCK_FILE"
+        fi
+    fi
     
-    # Try to recover by resetting to last known good state
-    log_message "Attempting recovery by resetting to HEAD"
-    git reset --hard HEAD >> "$LOG_FILE" 2>&1
+    # Create lock file
+    echo $$ > "$LOCK_FILE"
+}
+
+# Function to cleanup on exit
+cleanup() {
+    rm -f "$LOCK_FILE"
+}
+
+# Set trap for cleanup
+trap cleanup EXIT INT TERM
+
+# Main execution
+main() {
+    log_message "=== Unified Clean Deployment Script Started ==="
+    log_message "Working directory: $REPO_PATH"
+    log_message "Log file: $LOG_FILE"
+    log_message "Operation: HARD RESET + CLEAN PULL + RESTART"
     
-    # Send error notifications
-    send_email "Deployment Failed" "$ERROR_MSG"
-    send_notification "Deployment failed - check logs for details" "error"
+    # Check for running instance
+    check_lock
     
-    exit 1
-fi
+    # Send start notification
+    send_notification "🧹 **Clean Deployment Started**\n\nServer: $(hostname)\nRepository: $(basename "$REPO_PATH")\nOperation: Hard reset + Clean pull + Restart" "start"
+    
+    # Step 1: Kill existing Python processes
+    kill_python_processes
+    
+    # Step 2: Perform clean repository update with hard reset
+    log_message "Starting clean repository update process..."
+    clean_pull_repository
+    REPO_UPDATE_STATUS=$?
+    
+    case $REPO_UPDATE_STATUS in
+        0)
+            log_message "✅ Repository updated successfully"
+            REPO_STATUS="Updated successfully"
+            ;;
+        2)
+            log_message "ℹ️ Repository was already up to date"
+            REPO_STATUS="Already up to date"
+            ;;
+        *)
+            log_message "❌ Repository update failed"
+            REPO_STATUS="Update failed"
+            
+            ERROR_MSG="❌ **Clean Deployment Failed**\n\n• Stage: Repository update\n• Action: Hard reset and pull\n• Status: Failed\n• Check logs for details"
+            send_notification "$ERROR_MSG" "error"
+            log_message "=== Script completed with errors ==="
+            exit 1
+            ;;
+    esac
+    
+    # Step 3: Update dependencies (only if repo was updated or forced)
+    DEPENDENCY_STATUS="Skipped"
+    if [ $REPO_UPDATE_STATUS -eq 0 ] || [ "$1" = "--force-deps" ]; then
+        log_message "Updating Python dependencies..."
+        if update_dependencies; then
+            DEPENDENCY_STATUS="Updated successfully"
+        else
+            DEPENDENCY_STATUS="Update failed (continuing anyway)"
+        fi
+    else
+        log_message "Skipping dependency update (no repository changes)"
+    fi
+    
+    # Step 4: Start localRunner.py
+    log_message "Starting localRunner.py process..."
+    STARTUP_STATUS="Failed"
+    if start_localrunner; then
+        STARTUP_STATUS="Started successfully"
+    else
+        STARTUP_STATUS="Failed to start"
+    fi
+    
+    # Final summary and notifications
+    if [ "$STARTUP_STATUS" = "Started successfully" ]; then
+        SUCCESS_MSG="✅ **Clean Deployment Completed Successfully**\n\n• Repository: $REPO_STATUS\n• Dependencies: $DEPENDENCY_STATUS\n• Process: $STARTUP_STATUS\n• Server: $(hostname)\n• Working Directory: $REPO_PATH\n• Log: $LOG_FILE"
+        
+        log_message "✅ Clean deployment completed successfully"
+        log_message "Repository: $REPO_STATUS"
+        log_message "Dependencies: $DEPENDENCY_STATUS"
+        log_message "Process: $STARTUP_STATUS"
+        
+        send_notification "$SUCCESS_MSG" "success"
+        log_message "=== Script completed successfully ==="
+        exit 0
+    else
+        ERROR_MSG="⚠️ **Clean Deployment Partially Completed**\n\n• Repository: $REPO_STATUS\n• Dependencies: $DEPENDENCY_STATUS\n• Process: $STARTUP_STATUS\n• Issue: Failed to start localRunner.py\n• Check logs: $LOG_FILE"
+        
+        log_message "⚠️ Clean deployment partially completed - process startup failed"
+        send_notification "$ERROR_MSG" "warning"
+        log_message "=== Script completed with warnings ==="
+        exit 1
+    fi
+}
+
+# Show usage information if help requested
+case "$1" in
+    -h|--help|help)
+        echo "Unified Clean Deployment Script for Twitch Channel Points Miner"
+        echo ""
+        echo "Usage: $0 [OPTIONS]"
+        echo ""
+        echo "Options:"
+        echo "  --force-deps    Force dependency update even if repository unchanged"
+        echo "  -h, --help      Show this help message"
+        echo ""
+        echo "This script performs:"
+        echo "  1. Kills all running Python processes"
+        echo "  2. Performs git clean -fd to remove untracked files"
+        echo "  3. Performs git reset --hard HEAD to discard local changes"
+        echo "  4. Fetches and pulls latest changes from remote repository"
+        echo "  5. Updates Python dependencies (if repository changed)"
+        echo "  6. Starts localRunner.py process"
+        echo ""
+        echo "WARNING: This script will PERMANENTLY DELETE all local changes!"
+        echo "Make sure you have committed or backed up any important changes."
+        exit 0
+        ;;
+esac
+
+# Run main function with all arguments
+main "$@"
