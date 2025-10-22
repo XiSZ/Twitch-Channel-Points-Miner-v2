@@ -3,11 +3,26 @@
 # Combines functionality from all deployment scripts with forced clean pull
 # This script performs a HARD RESET and clean pull from remote repository
 
-# Configuration defaults - can be overridden by .env file
-REPO_PATH="$(cd "$(dirname "$0")" && pwd)"
+# Configuration defaults - can be overridden by .env file or environment
+# If REPO_PATH is set in environment it will be used; otherwise use script dir
+if [ -n "$REPO_PATH" ]; then
+    : # use provided REPO_PATH
+else
+    REPO_PATH="$(cd "$(dirname "$0")" && pwd)"
+fi
 LOG_FILE="$HOME/logs/unified_clean_deploy.log"
 LOCK_FILE="$HOME/tmp/clean_deploy.lock"
 BRANCH="master"
+
+# CLI flags
+DRY_RUN=0
+for _arg in "$@"; do
+    case "$_arg" in
+        --dry-run|-n)
+            DRY_RUN=1
+            ;;
+    esac
+done
 
 # Set environment for compatibility (FreeBSD/Serv00/Linux)
 export PATH="$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
@@ -213,6 +228,15 @@ kill_python_processes() {
     fi
 }
 
+# Respect dry-run: do not actually kill processes when in dry-run mode
+kill_python_processes_wrapper() {
+    if [ "$DRY_RUN" -eq 1 ]; then
+        log_message "Dry-run: skipping killing Python processes"
+        return 0
+    fi
+    kill_python_processes
+}
+
 # Function to perform hard reset and clean pull
 clean_pull_repository() {
     log_message "Performing clean repository update with hard reset..."
@@ -227,6 +251,18 @@ clean_pull_repository() {
     if [ ! -d ".git" ]; then
         log_message "ERROR: Not a git repository: $REPO_PATH"
         return 1
+    fi
+
+    # If dry-run requested, show what would happen and exit early
+    if [ "$DRY_RUN" -eq 1 ]; then
+        log_message "DRY RUN: Showing planned repository changes (no modifications will be made)"
+        log_message "DRY RUN: Untracked files that would be removed (git clean -nd):"
+        git clean -nd 2>/dev/null | sed -n '1,200p' | while read -r line; do log_message "  $line"; done
+        log_message "DRY RUN: Fetching remote info for origin/$BRANCH (no pull will be performed)"
+        git fetch origin "$BRANCH" 2>/dev/null || true
+        log_message "DRY RUN: Commits that would be pulled (HEAD..origin/$BRANCH):"
+        git log --oneline HEAD..origin/"$BRANCH" 2>/dev/null | sed -n '1,50p' | while read -r line; do log_message "  $line"; done
+        return 2
     fi
     
     # Configure git settings for better compatibility
@@ -588,8 +624,8 @@ main() {
     # Send start notification
     send_notification "🧹 **Clean Deployment Started**\n\nServer: $(hostname)\nRepository: $(basename "$REPO_PATH")\nOperation: Hard reset + Clean pull + Restart" "start"
     
-    # Step 1: Kill existing Python processes
-    kill_python_processes
+    # Step 1: Kill existing Python processes (respects --dry-run)
+    kill_python_processes_wrapper
     
     # Step 2: Perform clean repository update with hard reset
     log_message "Starting clean repository update process..."
@@ -667,9 +703,10 @@ case "$1" in
         echo ""
         echo "Usage: $0 [OPTIONS]"
         echo ""
-        echo "Options:"
-        echo "  --force-deps    Force dependency update even if repository unchanged"
-        echo "  -h, --help      Show this help message"
+    echo "Options:"
+    echo "  --dry-run, -n   Show what would be done without making changes"
+    echo "  --force-deps    Force dependency update even if repository unchanged"
+    echo "  -h, --help      Show this help message"
         echo ""
         echo "This script performs:"
         echo "  1. Kills all running Python processes"
@@ -681,6 +718,9 @@ case "$1" in
         echo ""
         echo "WARNING: This script will PERMANENTLY DELETE all local changes!"
         echo "Make sure you have committed or backed up any important changes."
+    echo ""
+    echo "Environment variables:" 
+    echo "  REPO_PATH=/path/to/repo   Override default repository path (script directory)"
         exit 0
         ;;
 esac
