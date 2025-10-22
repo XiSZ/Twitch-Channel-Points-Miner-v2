@@ -315,6 +315,7 @@ twitch_miner.mine(
         "peachzie",
         "jilledwater",
         "jenna",
+        "jaycgee",
         "faithcakee",
         "StPeach",
         "yololaryy",
