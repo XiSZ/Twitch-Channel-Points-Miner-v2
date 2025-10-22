@@ -380,7 +380,6 @@ twitch_miner.mine(
         "maryydlg",
         "manyissues",
         "LadyKandice",
-        "rainingshady",
         "sambivalent",
         "saaravaa",
         "imSoff",
