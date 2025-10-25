@@ -12,3 +12,4 @@ irc
 pandas
 pytz
 validators
+jaraco.stream
