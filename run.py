@@ -321,6 +321,7 @@ twitch_miner.mine(
         "yololaryy",
         "notaestheticallyhannah",
         "jassie",
+        "berta",
         "earthround",
         "crisette_",
         "aryssa614",
