@@ -3,6 +3,7 @@ websocket-client
 pillow
 python-dateutil
 python-dotenv
+virtualenv
 emoji
 millify
 pre-commit
