@@ -50,7 +50,7 @@ twitch_miner = TwitchChannelPointsMiner(
     password=password,
     claim_drops_startup=True,
     priority=[Priority.STREAK, Priority.DROPS, Priority.ORDER],
-    enable_analytics=True,
+    enable_analytics=False,
     # Set to True at your own risk
     # and only to fix SSL: CERTIFICATE_VERIFY_FAILED error
     disable_ssl_cert_verification=False,
@@ -249,19 +249,19 @@ twitch_miner = TwitchChannelPointsMiner(
 
 # Option 2: Auto-detect local IP ( uses the utility function to get local IP)
 # Show available network options
-print_network_info()
-# Get your local IP
-local_ip = get_local_ip()
-print(f"Detected local IP: {local_ip}")
+# print_network_info()
+# # Get your local IP
+# local_ip = get_local_ip()
+# print(f"Detected local IP: {local_ip}")
 # Get all available interfaces
-interfaces = get_all_network_interfaces()
-print(f"Available interfaces: {interfaces}")
-twitch_miner.analytics(
-    auto_detect_host=True,  # Automatically detect local IP
-    port=int(os.environ.get("PORT", 6060)),
-    refresh=60,
-    days_ago=30,
-)
+# interfaces = get_all_network_interfaces()
+# print(f"Available interfaces: {interfaces}")
+# twitch_miner.analytics(
+#     auto_detect_host=True,  # Automatically detect local IP
+#     port=int(os.environ.get("PORT", 6060)),
+#     refresh=60,
+#     days_ago=30,
+# )
 
 # Option 3: Manual Detection with Utilities
 # Use the new utility functions to get network information:
