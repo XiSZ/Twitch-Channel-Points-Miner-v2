@@ -50,7 +50,7 @@ twitch_miner = TwitchChannelPointsMiner(
     password=password,
     claim_drops_startup=True,
     priority=[Priority.STREAK, Priority.DROPS, Priority.ORDER],
-    enable_analytics=False,
+    enable_analytics=True,
     # Set to True at your own risk
     # and only to fix SSL: CERTIFICATE_VERIFY_FAILED error
     disable_ssl_cert_verification=False,
