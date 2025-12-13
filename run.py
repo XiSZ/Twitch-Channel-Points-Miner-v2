@@ -249,19 +249,19 @@ twitch_miner = TwitchChannelPointsMiner(
 
 # Option 2: Auto-detect local IP ( uses the utility function to get local IP)
 # Show available network options
-# print_network_info()
+print_network_info()
 # Get your local IP
-# local_ip = get_local_ip()
-# print(f"Detected local IP: {local_ip}")
+local_ip = get_local_ip()
+print(f"Detected local IP: {local_ip}")
 # Get all available interfaces
-# interfaces = get_all_network_interfaces()
-# print(f"Available interfaces: {interfaces}")
-# twitch_miner.analytics(
-#     auto_detect_host=True,  # Automatically detect local IP
-#     port=int(os.environ.get("PORT", 6060)),
-#     refresh=60,
-#     days_ago=30,
-# )
+interfaces = get_all_network_interfaces()
+print(f"Available interfaces: {interfaces}")
+twitch_miner.analytics(
+    auto_detect_host=True,  # Automatically detect local IP
+    port=int(os.environ.get("PORT", 6060)),
+    refresh=60,
+    days_ago=30,
+)
 
 # Option 3: Manual Detection with Utilities
 # Use the new utility functions to get network information:
