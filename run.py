@@ -325,8 +325,7 @@ twitch_miner.mine(
         "shan",
         "CyborgAngel",
         "berta",
-        "kartoffelschtriem",
-        "mandycandysupersandy",
+        "stpeach",
         "nemuri_bun",
         "ariana_a7",
         "justcallmemary",
@@ -334,7 +333,9 @@ twitch_miner.mine(
         "ki_pi",
         "ashtronova",
         "smoodie",
-        "zylavale"
+        "zylavale",
+        "kartoffelschtriem",
+        "mandycandysupersandy"
     ],
     followers=False,
     followers_order=FollowersOrder.DESC,
