@@ -321,6 +321,7 @@ twitch_miner.mine(
         "ladyxblake",
         "peachzie",
         "jilledwater",
+        "klara",
         "meowdalyn",
         "shan",
         "CyborgAngel",
