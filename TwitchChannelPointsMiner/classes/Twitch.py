@@ -99,10 +99,20 @@ class Twitch(object):
         if streamer.stream.update_required() is True:
             stream_info = self.get_stream_info(streamer)
             if stream_info is not None:
+                # Check if broadcastSettings exists and is not None
+                broadcast_settings = stream_info.get("broadcastSettings")
+                if broadcast_settings is None:
+                    # Use default values if broadcastSettings is missing
+                    title = "Unknown"
+                    game = {"displayName": "Unknown"}
+                else:
+                    title = broadcast_settings.get("title", "Unknown")
+                    game = broadcast_settings.get("game", {"displayName": "Unknown"})
+                
                 streamer.stream.update(
                     broadcast_id=stream_info["stream"]["id"],
-                    title=stream_info["broadcastSettings"]["title"],
-                    game=stream_info["broadcastSettings"]["game"],
+                    title=title,
+                    game=game,
                     tags=stream_info["stream"]["tags"],
                     viewers_count=stream_info["stream"]["viewersCount"],
                 )

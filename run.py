@@ -332,9 +332,10 @@ twitch_miner.mine(
         "justcallmemary",
         "rhyaree",
         "ki_pi",
-        "ashtronova",
         "smoodie",
+        "ashtronova",
         "zylavale",
+        "faithcakee",
         "kartoffelschtriem",
         "mandycandysupersandy"
     ],
