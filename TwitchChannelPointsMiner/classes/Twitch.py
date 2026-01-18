@@ -8,11 +8,10 @@ import copy
 import logging
 import os
 import re
-import secrets
 import string
 import time
 from pathlib import Path
-from secrets import choice, token_hex
+from secrets import SystemRandom, choice, token_hex
 from typing import Any, Dict
 
 import requests
@@ -271,7 +270,7 @@ class Twitch(object):
         # The success rate It's very hight usually. Why we have failed?
         # Check internet connection ...
         while internet_connection_available() is False:
-            random_sleep = secrets.SystemRandom().randint(1, 3)
+            random_sleep = SystemRandom().randint(1, 3)
             logger.warning(
                 f"No internet connection available! Retry after {random_sleep}m"
             )
@@ -936,7 +935,7 @@ class Twitch(object):
                         drop.update(drop_dict["self"])
                         if drop.is_claimable is True:
                             drop.is_claimed = self.claim_drop(drop)
-                            time.sleep(secrets.SystemRandom().uniform(5, 10))
+                            time.sleep(SystemRandom().uniform(5, 10))
 
     def sync_campaigns(self, streamers, chunk_size=3):
         campaigns_update = 0
