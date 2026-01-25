@@ -325,6 +325,7 @@ twitch_miner.mine(
         "klara",
         "CyborgAngel",
         "berta",
+        "belluhz",
         "nemuri_bun",
         "ariana_a7",
         "justcallmemary",
@@ -335,7 +336,9 @@ twitch_miner.mine(
         "shan",
         "zylavale",
         "ashtronova",
-        "faithcakee"
+        "faithcakee",
+        "kartoffelschtriem",
+        "mandycandysupersandy"
     ],
     followers=False,
     followers_order=FollowersOrder.DESC,
