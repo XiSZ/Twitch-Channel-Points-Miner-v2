@@ -305,7 +305,7 @@ twitch_miner.mine(
         "freyja",
         "helenalive",
         "karmixxy",
-        "crisette_",
+        "crisettee",
         "helenanailtech",
         "nieckaa",
         "Snowmixy",
