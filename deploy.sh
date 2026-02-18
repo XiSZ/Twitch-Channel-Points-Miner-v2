@@ -36,10 +36,12 @@ done
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
-mkdir -p "$(dirname "$LOG_FILE")" "$(dirname "$LOCK_FILE")" 2>/dev/null
+mkdir -p "$(dirname "$LOG_FILE")" "$(dirname "$LOCK_FILE")" 2>/dev/null || true
 
 log() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
+    timestamp="$(date '+%Y-%m-%d %H:%M:%S') - $1"
+    echo "$timestamp"
+    echo "$timestamp" >> "$LOG_FILE" 2>/dev/null || true
 }
 
 # Load .env file (exports variables for notification config)
