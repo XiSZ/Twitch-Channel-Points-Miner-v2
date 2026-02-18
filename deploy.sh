@@ -6,7 +6,7 @@ set -e
 
 # ─── Configuration ───────────────────────────────────────────────────────────
 
-REPO_PATH="${REPO_PATH:-$(cd "$(dirname "$0")" && pwd)}"
+REPO_PATH="$(cd "$(dirname "$0")" && pwd)"
 BRANCH="${BRANCH:-master}"
 LOG_FILE="$REPO_PATH/logs/deploy.log"
 LOCK_FILE="$REPO_PATH/tmp/deploy.lock"
