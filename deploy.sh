@@ -8,9 +8,9 @@ set -e
 
 REPO_PATH="${REPO_PATH:-$(cd "$(dirname "$0")" && pwd)}"
 BRANCH="${BRANCH:-master}"
-LOG_FILE="$HOME/logs/deploy.log"
-LOCK_FILE="$HOME/tmp/deploy.lock"
-MINER_LOG="$HOME/logs/localRunner.log"
+LOG_FILE="$REPO_PATH/logs/deploy.log"
+LOCK_FILE="$REPO_PATH/tmp/deploy.lock"
+MINER_LOG="$REPO_PATH/logs/localRunner.log"
 
 # CLI flags
 FORCE_RESET=0
@@ -182,9 +182,9 @@ if [ "$REPO_CHANGED" -eq 1 ] || [ "$FORCE_DEPS" -eq 1 ]; then
                 log "Dry-run: would run pip install -r requirements.txt"
             else
                 if echo "$PYTHON_CMD" | grep -q "\.venv"; then
-                    "$PYTHON_CMD" -m pip install --upgrade -r requirements.txt >> "$LOG_FILE" 2>&1
+                    "$PYTHON_CMD" -m pip install --upgrade -r requirements.txt >> "$LOG_FILE" 2>&1 || true
                 else
-                    "$PYTHON_CMD" -m pip install --user --upgrade -r requirements.txt >> "$LOG_FILE" 2>&1
+                    "$PYTHON_CMD" -m pip install --user --upgrade -r requirements.txt >> "$LOG_FILE" 2>&1 || true
                 fi
                 log "Dependencies updated."
             fi
@@ -216,9 +216,13 @@ if [ -z "$PYTHON_CMD" ]; then
     exit 1
 fi
 
-mkdir -p "$(dirname "$MINER_LOG")" 2>/dev/null
+mkdir -p "$(dirname "$MINER_LOG")" 2>/dev/null || true
 log "Starting localRunner.py..."
-nohup "$PYTHON_CMD" localRunner.py > "$MINER_LOG" 2>&1 &
+if [ -w "$(dirname "$MINER_LOG")" ] 2>/dev/null; then
+    nohup "$PYTHON_CMD" localRunner.py > "$MINER_LOG" 2>&1 &
+else
+    nohup "$PYTHON_CMD" localRunner.py >/dev/null 2>&1 &
+fi
 MINER_PID=$!
 sleep 3
 
