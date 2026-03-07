@@ -6,7 +6,12 @@ set -e
 
 # ─── Configuration ───────────────────────────────────────────────────────────
 
-REPO_PATH="$(cd "$(dirname "$0")" && /bin/pwd -P)"
+_dir="$(dirname "$0")"
+case "$_dir" in
+    /*) REPO_PATH="$_dir" ;;
+    *)  REPO_PATH="$(cd "$_dir" && pwd)" ;;
+esac
+unset _dir
 BRANCH="${BRANCH:-master}"
 LOG_FILE="$REPO_PATH/logs/deploy.log"
 LOCK_FILE="$REPO_PATH/tmp/deploy.lock"
@@ -125,7 +130,7 @@ if [ ! -d ".git" ]; then
 fi
 
 # Step 1: Stop existing miner process
-MINER_PID=$(pgrep -f "localRunner.py\|run.py" 2>/dev/null || true)
+MINER_PID=$(pgrep -f "localRunner.py|run.py" 2>/dev/null || true)
 if [ -n "$MINER_PID" ]; then
     if [ "$DRY_RUN" -eq 1 ]; then
         log "Dry-run: would stop miner processes: $MINER_PID"
