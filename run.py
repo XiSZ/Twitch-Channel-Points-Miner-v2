@@ -304,7 +304,6 @@ twitch_miner.mine(
         "Faellu",
         "freyja",
         "helenalive",
-        "karmixxy",
         "crisettee",
         "helenanailtech",
         "nieckaa",
