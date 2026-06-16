@@ -45,10 +45,10 @@ class ClientIRC(SingleServerIRCBot):
                 logger.error(
                     f"Exception raised: {e}. Thread is active: {self.__active}"
                 )
+        self.connection.disconnect("Disconnected from Channel!")
 
     def die(self, msg="Bye, cruel world!"):
         self.__active = False
-        self.connection.disconnect(msg)
 
     """
     def on_join(self, connection, event):
