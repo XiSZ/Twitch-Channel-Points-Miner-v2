@@ -289,9 +289,10 @@ twitch_miner.mine(
     [
         Streamer("warframe", settings=StreamerSettings(
             chat=ChatPresence.ONLINE)),
+        Streamer("wudijo", settings=StreamerSettings(
+                    chat=ChatPresence.ONLINE)),
         "ralumyst",
-        Streamer("xhenniii", settings=StreamerSettings(
-            chat=ChatPresence.ONLINE)),
+        "xhenniii",
         "melvniely",
         "cypathic",
         "adorbie",
