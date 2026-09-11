@@ -29,25 +29,20 @@ from TwitchChannelPointsMiner.classes.entities.Streamer import (
     Streamer,
     StreamerSettings,
 )
-from TwitchChannelPointsMiner.utils import (
-    print_network_info,
-    get_local_ip,
-    get_all_network_interfaces,
-)
 
 # import keep_alive
 # #keep_alive.keep_alive()
 
-user = os.getenv("USER")
-password = os.getenv("PASSWORD")
-webHook = os.getenv("WEBHOOK") or ""
-chatID = os.getenv("CHATID")
-telegramToken = os.getenv("TELEGRAMTOKEN")
+USER = os.getenv("USER")
+PASSWORD = os.getenv("PASSWORD") or ""
+WEBHOOK = os.getenv("WEBHOOK") or ""
+CHAT_ID = int(os.getenv("CHATID") or 0)
+TELEGRAMTOKEN = str(os.getenv("TELEGRAMTOKEN") or "")
 
 
 twitch_miner = TwitchChannelPointsMiner(
     username="XiSZ_",
-    password=password,
+    password=PASSWORD,
     claim_drops_startup=True,
     priority=[Priority.STREAK, Priority.DROPS, Priority.ORDER],
     enable_analytics=False,
@@ -88,8 +83,8 @@ twitch_miner = TwitchChannelPointsMiner(
             # Only these events will be sent to the endpoint
         ),
         telegram=Telegram(
-            chat_id=chatID,
-            token=telegramToken,
+            chat_id=CHAT_ID,
+            token=TELEGRAMTOKEN,
             events=[
                 Events.STREAMER_ONLINE,
                 Events.STREAMER_OFFLINE,
@@ -107,7 +102,7 @@ twitch_miner = TwitchChannelPointsMiner(
             disable_notification=True,
         ),
         discord=Discord(
-            webhook_api=webHook,
+            webhook_api=WEBHOOK,
             events=[
                 Events.STREAMER_ONLINE,
                 Events.STREAMER_OFFLINE,
@@ -233,57 +228,6 @@ twitch_miner = TwitchChannelPointsMiner(
         ),
     ),
 )
-
-
-# For Serv00 hosting - Analytics dashboard
-# Option 1: Manual host specification (previous approach)
-# twitch_miner.analytics(
-#     host="0.0.0.0",  # Listen on all interfaces for Serv00
-#     # Use environment PORT or default to 6060
-#     port=int(os.environ.get("PORT", 6060)),
-#     refresh=5,  # Refresh every 5 seconds
-#     days_ago=30,  # Show data from last 30 days
-# )
-
-# twitch_miner.analytics(host='127.0.0.1', port=6060, refresh=60, days_ago=30)
-
-# Option 2: Auto-detect local IP ( uses the utility function to get local IP)
-# Show available network options
-# print_network_info()
-# # Get your local IP
-# local_ip = get_local_ip()
-# print(f"Detected local IP: {local_ip}")
-# Get all available interfaces
-# interfaces = get_all_network_interfaces()
-# print(f"Available interfaces: {interfaces}")
-# twitch_miner.analytics(
-#     auto_detect_host=True,  # Automatically detect local IP
-#     port=int(os.environ.get("PORT", 6060)),
-#     refresh=60,
-#     days_ago=30,
-# )
-
-# Option 3: Manual Detection with Utilities
-# Use the new utility functions to get network information:
-# Get your local IP
-# local_ip = get_local_ip()
-# print(f"Detected local IP: {local_ip}")
-# Get all available interfaces
-# interfaces = get_all_network_interfaces()
-# print(f"Available interfaces: {interfaces}")
-# Use the detected IP
-# twitch_miner.analytics(host=local_ip, port=6060)
-
-# Option 4: Environment-Based Selection
-# Create dynamic host selection based on your environment
-# Dynamic host selection
-# if os.environ.get("HOSTING_PROVIDER") == "serv00":
-#     host = "0.0.0.0"  # For Serv00 hosting
-# elif os.environ.get("ENVIRONMENT") == "local":
-#     host = "127.0.0.1"  # For local development
-# else:
-#     host = get_local_ip()  # Auto-detect for other cases
-# twitch_miner.analytics(host=host, port=6060)
 
 twitch_miner.mine(
     [
