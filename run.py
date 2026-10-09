@@ -261,7 +261,7 @@ twitch_miner.mine(
         "kiaa",
         "kittxnlylol",
         "charlyne",
-        "matildathepotato",
+        "aryssa614",
         "yourluckyclover",
         "thisispnut",
         "ladyxblake",
@@ -281,6 +281,7 @@ twitch_miner.mine(
         "faithcakee",
         "swag_charhar",
         "jessihar",
+        "matildathepotato",
         "kartoffelschtriem",
         "mandycandysupersandy"
     ],
