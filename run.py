@@ -252,6 +252,7 @@ twitch_miner.mine(
         "crisettee",
         "helenanailtech",
         "nieckaa",
+        "rxze_xo",
         "Snowmixy",
         "al3xxandra",
         "lauraa",
