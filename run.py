@@ -241,6 +241,7 @@ twitch_miner.mine(
         "chubssx",
         "Xull",
         "vell",
+        "noxyoff",
         "wiglyboo",
         "rxze_xo",
         "stpeach",
