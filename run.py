@@ -254,7 +254,7 @@ twitch_miner.mine(
         "paranoidpixi3_za",
         "kiilanie",
         "kiaa",
-        "kittxnlylol",
+        "kittxnly",
         "charlyne",
         "aryssa614",
         "yourluckyclover",
