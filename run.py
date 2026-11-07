@@ -275,7 +275,7 @@ twitch_miner.mine(
         "helenanailtech",
         "freyja",
         "Faellu",
-        "swag_charhar",
+        "charhar_",
         "jessihar",
         "zylavale",
         "Snowmixy",
